@@ -24,6 +24,7 @@
   </header>
 
   <main>
+    <section class="teacher-banner" id="teacherBanner" hidden><img alt=""><div><span class="section-kicker">مدرّس المادة</span><h2 data-teacher-name></h2><p data-bio></p><div class="teacher-meta"><span data-subject></span><span data-grades></span></div></div></section>
     <section class="hero" id="hero">
       <div class="hero-content">
         <div class="eyebrow"><span class="eyebrow-icon">✦</span> بنك أسئلة وامتحانات تفاعلي</div>
@@ -58,7 +59,7 @@
           <label class="field full" id="trackField" hidden><span>المسار / التخصص</span><div class="select-wrap"><select name="track" id="trackSelect"><option value="">اختار المسار</option><option>الأكاديمي</option><option>المهني</option></select><span>⌄</span></div></label>
           <div class="form-error full" id="formError" role="alert" hidden></div>
           <button class="primary-btn full" type="submit">أرسل رمز التحقق <span>←</span></button>
-          <div class="demo-note full"><span>ⓘ</span> هذه نسخة تجريبية. رمز التحقق للتجربة: <strong>123456</strong></div>
+          <div class="demo-note full" hidden></div>
         </form>
         <form id="verifyForm" class="verify-form" hidden>
           <div class="verify-badge">✉</div><h3>تأكيد رقمك</h3><p>أدخل الرمز المكوّن من ٦ أرقام المرسل إلى<br><b id="phonePreview">+962 7XXXXXXXX</b></p>
@@ -66,7 +67,7 @@
           <div class="form-error" id="verifyError" role="alert" hidden></div>
           <button class="primary-btn full" type="submit">تأكيد ومتابعة <span>←</span></button>
           <button type="button" class="back-link" id="backBtn">تعديل رقم الهاتف</button>
-          <div class="demo-note" id="demoOtpNote"><span>ⓘ</span> رمز التجربة هو <strong>123456</strong></div>
+          <div class="demo-note" id="demoOtpNote" hidden></div>
         </form>
       </div>
     </section>
@@ -92,6 +93,7 @@
 
   <footer><a class="brand footer-brand" href="#"><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i><b>أ</b></span><span><strong>أساس</strong><small>بنك الامتحانات</small></span></a><span>تعلّم اليوم… وتقدّم كل يوم.</span><small>نسخة تجريبية — قيد إعداد المحتوى</small></footer>
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <script src="teacher-config.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
