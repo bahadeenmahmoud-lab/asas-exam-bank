@@ -1,0 +1,181 @@
+{
+  "exams": [
+    {
+      "grade": 1,
+      "subject": "اللغة العربية",
+      "semester": "الفصل الأول",
+      "academicYear": "2026-2027",
+      "sourceReference": "https://nccd.gov.jo/ar/pages/TextBooksGrade/68",
+      "model": 1,
+      "questions": [
+        {
+          "prompt": "",
+          "options": [
+            "",
+            "",
+            "",
+            ""
+          ],
+          "correctIndex": 0,
+          "explanation": ""
+        },
+        {
+          "prompt": "",
+          "options": [
+            "",
+            "",
+            "",
+            ""
+          ],
+          "correctIndex": 0,
+          "explanation": ""
+        },
+        {
+          "prompt": "",
+          "options": [
+            "",
+            "",
+            "",
+            ""
+          ],
+          "correctIndex": 0,
+          "explanation": ""
+        },
+        {
+          "prompt": "",
+          "options": [
+            "",
+            "",
+            "",
+            ""
+          ],
+          "correctIndex": 0,
+          "explanation": ""
+        },
+        {
+          "prompt": "",
+          "options": [
+            "",
+            "",
+            "",
+            ""
+          ],
+          "correctIndex": 0,
+          "explanation": ""
+        },
+        {
+          "prompt": "",
+          "options": [
+            "",
+            "",
+            "",
+            ""
+          ],
+          "correctIndex": 0,
+          "explanation": ""
+        },
+        {
+          "prompt": "",
+          "options": [
+            "",
+            "",
+            "",
+            ""
+          ],
+          "correctIndex": 0,
+          "explanation": ""
+        },
+        {
+          "prompt": "",
+          "options": [
+            "",
+            "",
+            "",
+            ""
+          ],
+          "correctIndex": 0,
+          "explanation": ""
+        },
+        {
+          "prompt": "",
+          "options": [
+            "",
+            "",
+            "",
+            ""
+          ],
+          "correctIndex": 0,
+          "explanation": ""
+        },
+        {
+          "prompt": "",
+          "options": [
+            "",
+            "",
+            "",
+            ""
+          ],
+          "correctIndex": 0,
+          "explanation": ""
+        },
+        {
+          "prompt": "",
+          "options": [
+            "",
+            "",
+            "",
+            ""
+          ],
+          "correctIndex": 0,
+          "explanation": ""
+        },
+        {
+          "prompt": "",
+          "options": [
+            "",
+            "",
+            "",
+            ""
+          ],
+          "correctIndex": 0,
+          "explanation": ""
+        },
+        {
+          "prompt": "",
+          "options": [
+            "",
+            "",
+            "",
+            ""
+          ],
+          "correctIndex": 0,
+          "explanation": ""
+        },
+        {
+          "prompt": "",
+          "options": [
+            "",
+            "",
+            "",
+            ""
+          ],
+          "correctIndex": 0,
+          "explanation": ""
+        },
+        {
+          "prompt": "",
+          "options": [
+            "",
+            "",
+            "",
+            ""
+          ],
+          "correctIndex": 0,
+          "explanation": ""
+        }
+      ],
+      "unit": "",
+      "lesson": ""
+    }
+  ]
+}

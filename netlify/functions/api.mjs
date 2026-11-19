@@ -56,9 +56,11 @@ async function requireAdmin(req) {
 }
 
 async function upsertExam(payload, teacherSlug = "asas") {
-  const { grade, subject, semester = "الفصل الأول", academicYear = "2026-2027", sourceReference = "", model, questions } = payload || {};
+  const { grade, subject, semester = "الفصل الأول", unit = "", lesson = "", academicYear = "2026-2027", sourceReference = "", model, questions } = payload || {};
   if (!Number.isInteger(Number(grade)) || Number(grade) < 1 || Number(grade) > 12) throw new Error("الصف يجب أن يكون من 1 إلى 12.");
   if (!String(subject || "").trim()) throw new Error("اسم المادة مطلوب.");
+  if (!String(unit || "").trim()) throw new Error("اسم الوحدة مطلوب.");
+  if (!String(lesson || "").trim()) throw new Error("اسم الدرس مطلوب.");
   if (!validGradeForTeacher(teacherSlug, grade) || (subjectForTeacher(teacherSlug) && subject.trim() !== subjectForTeacher(teacherSlug))) throw new Error("الصف أو المادة غير متاحان لهذه النسخة.");
   if (!Number.isInteger(Number(model)) || Number(model) < 1 || Number(model) > 3) throw new Error("رقم النموذج يجب أن يكون من 1 إلى 3.");
   if (!Array.isArray(questions) || questions.length !== 15) throw new Error("يجب أن يحتوي كل نموذج على 15 سؤالاً.");
@@ -69,9 +71,9 @@ async function upsertExam(payload, teacherSlug = "asas") {
   }
   const sub = await db.sql`INSERT INTO subjects (teacher_slug, grade, name) VALUES (${teacherSlug}, ${Number(grade)}, ${String(subject).trim()})
     ON CONFLICT (teacher_slug, grade, name) DO UPDATE SET active = TRUE RETURNING id`;
-  const exam = await db.sql`INSERT INTO exams (teacher_slug, grade, subject_id, title, semester, academic_year, source_reference, model, status)
-    VALUES (${teacherSlug}, ${Number(grade)}, ${sub[0].id}, ${`النموذج ${model} — ${subject}`}, ${semester}, ${String(academicYear)}, ${String(sourceReference)}, ${Number(model)}, 'published')
-    ON CONFLICT (teacher_slug, grade, subject_id, semester, academic_year, model) DO UPDATE SET title = EXCLUDED.title, source_reference = EXCLUDED.source_reference, status = 'published'
+  const exam = await db.sql`INSERT INTO exams (teacher_slug, grade, subject_id, title, semester, unit, lesson, academic_year, source_reference, model, status)
+    VALUES (${teacherSlug}, ${Number(grade)}, ${sub[0].id}, ${`النموذج ${model} — ${subject}`}, ${semester}, ${String(unit)}, ${String(lesson)}, ${String(academicYear)}, ${String(sourceReference)}, ${Number(model)}, 'published')
+    ON CONFLICT (teacher_slug, grade, subject_id, semester, academic_year, model) DO UPDATE SET title = EXCLUDED.title, unit = EXCLUDED.unit, lesson = EXCLUDED.lesson, source_reference = EXCLUDED.source_reference, status = 'published'
     RETURNING id`;
   await db.sql`DELETE FROM questions WHERE exam_id = ${exam[0].id}`;
   for (const [i, q] of questions.entries()) {
@@ -152,7 +154,7 @@ export default async (req) => {
     if (req.method === "GET" && path === "/api/catalog") {
       const grade = Number(url.searchParams.get("grade"));
       if (!Number.isInteger(grade) || !validGradeForTeacher(teacherSlug, grade)) return fail("صف غير صالح.");
-      const exams = await db.sql`SELECT e.id, e.grade, s.name AS subject, e.title, e.semester, e.model,
+      const exams = await db.sql`SELECT e.id, e.grade, s.name AS subject, e.title, e.semester, e.unit, e.lesson, e.model,
           (SELECT COUNT(*) FROM questions q WHERE q.exam_id = e.id) AS question_count
         FROM exams e JOIN subjects s ON s.id = e.subject_id WHERE e.teacher_slug = ${teacherSlug} AND e.grade = ${grade} AND e.status = 'published'
         ORDER BY s.name, e.semester, e.model`;
@@ -220,7 +222,7 @@ export default async (req) => {
         db.sql`SELECT COUNT(*)::int AS count FROM exams WHERE teacher_slug = ${teacherSlug}`
       ]);
       const results = await db.sql`SELECT s.full_name, s.phone, s.grade, sub.name AS subject, e.title AS exam,
-          a.score, a.total, a.completed_at
+          e.semester, e.unit, e.lesson, a.score, a.total, a.completed_at
         FROM exam_attempts a JOIN students s ON s.id = a.student_id JOIN exams e ON e.id = a.exam_id
         JOIN subjects sub ON sub.id = e.subject_id WHERE e.teacher_slug = ${teacherSlug} ORDER BY a.completed_at DESC LIMIT 500`;
       return json({ counts: { students: students[0].count, attempts: attempts[0].count, exams: exams[0].count }, results });
