@@ -98,6 +98,7 @@ export default async (req) => {
       const grade = Number(body?.grade);
       const name = String(body?.name || "").trim().slice(0, 100);
       if (!name || !validPhone(phone) || !Number.isInteger(grade) || !validGradeForTeacher(teacherSlug, grade)) return fail("أدخل الاسم ورقم هاتف أردني وصفاً متاحاً بشكل صحيح.");
+      if (teacherSlug === "mohammad-bataineh" && body?.track && body.track !== "الأكاديمي") return fail("نسخة الأحياء مخصصة للمسار الأكاديمي.");
       const sentRecently = await db.sql`SELECT phone FROM verification_codes WHERE teacher_slug = ${teacherSlug} AND phone = ${phone} AND created_at > NOW() - INTERVAL '60 seconds'`;
       if (sentRecently.length) return fail("انتظر دقيقة قبل طلب رمز جديد.", 429);
       const smsUrl = env("SMS_WEBHOOK_URL");
@@ -130,7 +131,9 @@ export default async (req) => {
       const name = String(body?.name || prior[0]?.full_name || "").trim().slice(0, 100);
       const grade = Number(body?.grade || prior[0]?.grade);
       if (!name || !Number.isInteger(grade) || !validGradeForTeacher(teacherSlug, grade)) return fail("بيانات الطالب غير مكتملة.");
-      const student = await db.sql`INSERT INTO students (teacher_slug, full_name, phone, grade, track) VALUES (${teacherSlug}, ${name}, ${phone}, ${grade}, ${String(body?.track || "")})
+      if (teacherSlug === "mohammad-bataineh" && body?.track && body.track !== "الأكاديمي") return fail("نسخة الأحياء مخصصة للمسار الأكاديمي.");
+      const track = teacherSlug === "mohammad-bataineh" ? "الأكاديمي" : String(body?.track || "");
+      const student = await db.sql`INSERT INTO students (teacher_slug, full_name, phone, grade, track) VALUES (${teacherSlug}, ${name}, ${phone}, ${grade}, ${track})
         ON CONFLICT (teacher_slug, phone) DO UPDATE SET full_name = EXCLUDED.full_name, grade = EXCLUDED.grade, track = EXCLUDED.track, last_seen_at = NOW()
         RETURNING id, full_name, phone, grade, track`;
       await db.sql`DELETE FROM verification_codes WHERE teacher_slug = ${teacherSlug} AND phone = ${phone}`;

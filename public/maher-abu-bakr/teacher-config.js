@@ -1,6 +1,7 @@
 window.ASAS_CONFIG = {
   slug: 'maher-abu-bakr',
   teacherName: 'الأستاذ ماهر أبو بكر',
+  theme: 'arabic',
   subject: 'اللغة العربية',
   gradeCaption: 'الأول الثانوي والتوجيهي',
   bio: 'معلم اللغة العربية على منصة أساس التعليمية.',

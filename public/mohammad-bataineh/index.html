@@ -55,8 +55,8 @@
         <form id="registerForm" class="form-grid">
           <label class="field full"><span>اسم الطالب</span><div class="input-wrap"><span class="input-icon">♙</span><input name="name" autocomplete="name" placeholder="مثال: أحمد محمد" required minlength="2"></div></label>
           <label class="field full"><span>رقم الهاتف</span><div class="input-wrap phone-wrap"><span class="country-code">+962</span><input name="phone" type="tel" inputmode="numeric" autocomplete="tel-national" placeholder="7XXXXXXXX" pattern="7[0-9]{8}" required><span class="input-icon">⌕</span></div><small class="field-hint">أدخل رقم الموبايل الأردني بدون الصفر الأول.</small></label>
-          <label class="field full"><span>الصف</span><div class="select-wrap"><select name="grade" id="gradeSelect" required><option value="">اختار صفك</option></select><span>⌄</span></div></label>
-          <label class="field full" id="trackField" hidden><span>المسار / التخصص</span><div class="select-wrap"><select name="track" id="trackSelect"><option value="">اختار المسار</option><option>الأكاديمي</option><option>المهني</option></select><span>⌄</span></div></label>
+          <label class="field full"><span>الصف</span><div class="select-wrap"><select name="grade" id="gradeSelect" required><option value="">اختار صفك</option></select><span>⌄</span></div><small class="field-hint">المسار الأكاديمي — الأحياء للتوجيهي.</small></label>
+          
           <div class="form-error full" id="formError" role="alert" hidden></div>
           <button class="primary-btn full" type="submit">أرسل رمز التحقق <span>←</span></button>
           <div class="demo-note full" hidden></div>
