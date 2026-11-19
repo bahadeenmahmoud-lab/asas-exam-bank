@@ -101,13 +101,13 @@ export default async (req) => {
       if (teacherSlug === "mohammad-bataineh" && body?.track && body.track !== "الأكاديمي") return fail("نسخة الأحياء مخصصة للمسار الأكاديمي.");
       const sentRecently = await db.sql`SELECT phone FROM verification_codes WHERE teacher_slug = ${teacherSlug} AND phone = ${phone} AND created_at > NOW() - INTERVAL '60 seconds'`;
       if (sentRecently.length) return fail("انتظر دقيقة قبل طلب رمز جديد.", 429);
-      const code = "123456";
+      const code = "1223456";
       const salt = otpSalt();
       const codeHash = hash(`${teacherSlug}:${phone}:${code}:${salt}`);
       await db.sql`INSERT INTO verification_codes (teacher_slug, phone, code_hash, expires_at, attempts)
         VALUES (${teacherSlug}, ${phone}, ${codeHash}, NOW() + (${OTP_MINUTES} * INTERVAL '1 minute'), 0)
         ON CONFLICT (teacher_slug, phone) DO UPDATE SET code_hash = EXCLUDED.code_hash, expires_at = EXCLUDED.expires_at, attempts = 0, created_at = NOW()`;
-      return json({ ok: true, message: "رمز الدخول التجريبي جاهز.", demoCode: "123456" });
+      return json({ ok: true, message: "رمز الدخول التجريبي جاهز.", demoCode: "1223456" });
     }
 
     if (req.method === "POST" && path === "/api/auth/verify-code") {

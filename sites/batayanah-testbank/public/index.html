@@ -29,8 +29,7 @@
   </header>
 
   <main>
-    <section class="teacher-banner" id="teacherBanner" hidden><img alt=""><div><span class="section-kicker">مدرّس المادة</span><h2 data-teacher-name></h2><p data-bio></p><div class="teacher-meta"><span data-subject></span><span data-grades></span></div></div></section>
-    <section class="bataineh-poster" aria-label="صورة الأستاذ محمد البطاينة وإعلان الأحياء">
+<section class="bataineh-poster" aria-label="صورة الأستاذ محمد البطاينة وإعلان الأحياء">
       <img src="images/mohammad-bataineh-poster.jpg" alt="إعلان الأستاذ محمد البطاينة لمادة الأحياء" fetchpriority="high">
     </section>
     <section class="hero" id="hero">
@@ -59,7 +58,7 @@
     <section class="registration" id="registration">
       <div class="section-heading"><span class="section-kicker">خلّينا نبلّش</span><h2>سجّل في أحياء التوجيهي</h2><p>سجّل لتبدأ التدريب في أحياء التوجيهي مع الأستاذ محمد البطاينة.</p></div>
       <div class="register-card" id="registerCard">
-        <div class="stepper"><div class="step active" id="stepOne"><span>١</span><small>بياناتك</small></div><i></i><div class="step" id="stepTwo"><span>٢</span><small>تأكيد الرقم</small></div></div>
+        <div class="stepper"><div class="step active" id="stepOne"><span>١</span><small>بياناتك</small></div><i></i><div class="step" id="stepTwo"><span>٢</span><small>رمز الدخول</small></div></div>
         <form id="registerForm" class="form-grid">
           <label class="field full"><span>اسم الطالب</span><div class="input-wrap"><span class="input-icon">♙</span><input name="name" autocomplete="name" placeholder="مثال: أحمد محمد" required minlength="2"></div></label>
           <label class="field full"><span>رقم الهاتف</span><div class="input-wrap phone-wrap"><span class="country-code">+962</span><input name="phone" type="tel" inputmode="numeric" autocomplete="tel-national" placeholder="7XXXXXXXX" pattern="7[0-9]{8}" required><span class="input-icon">⌕</span></div><small class="field-hint">أدخل رقم الموبايل الأردني بدون الصفر الأول.</small></label>
@@ -70,10 +69,10 @@
           <div class="demo-note full" hidden></div>
         </form>
         <form id="verifyForm" class="verify-form" hidden>
-          <div class="verify-badge">✉</div><h3>تأكيد رقمك</h3><p>أدخل رمز الدخول التجريبي <strong>123456</strong></p>
-          <label class="field"><span>رمز الدخول</span><input class="otp-input" name="otp" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="••••••" required></label>
+          <div class="verify-badge">✉</div><h3>رمز الدخول</h3><p>أدخل رمز الدخول التجريبي <strong>1223456</strong></p>
+          <label class="field"><span>رمز الدخول</span><input class="otp-input" name="otp" inputmode="numeric" autocomplete="one-time-code" maxlength="7" placeholder="•••••••" required></label>
           <div class="form-error" id="verifyError" role="alert" hidden></div>
-          <button class="primary-btn full" type="submit">تأكيد ومتابعة <span>←</span></button>
+          <button class="primary-btn full" type="submit">دخول ومتابعة <span>←</span></button>
           <button type="button" class="back-link" id="backBtn">تعديل رقم الهاتف</button>
           <div class="demo-note" id="demoOtpNote" hidden></div>
         </form>
