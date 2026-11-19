@@ -45,7 +45,7 @@ const gradeSelect = $("examGrade");
 const textbookPages = { 1: 68, 2: 69, 3: 70, 4: 71, 5: 72, 6: 73, 7: 74, 8: 75, 9: 76, 10: 77 };
 const gradeValues = teacherSlug === "mohammad-bataineh" ? [12] : teacherSlug === "maher-abu-bakr" ? [11, 12] : Array.from({length:12}, (_, i) => i + 1);
 for (const grade of gradeValues) {
-  const option = document.createElement("option"); option.value = String(grade); option.textContent = `الصف ${grade}`; gradeSelect.append(option);
+  const option = document.createElement("option"); option.value = String(grade); option.textContent = grade === 11 ? "الأول الثانوي" : grade === 12 ? "التوجيهي" : `الصف ${grade}`; gradeSelect.append(option);
 }
 gradeSelect.addEventListener("change", () => { const page = textbookPages[gradeSelect.value]; $("sourceReference").value = page ? `https://nccd.gov.jo/ar/pages/TextBooksGrade/${page}` : ""; });
 for (let number = 1; number <= 15; number++) {
