@@ -76,6 +76,7 @@
       <div class="dashboard-heading"><div><span class="section-kicker">جاهز للتحدّي؟</span><h2>موادك وامتحاناتك</h2><p id="welcomeText">اختار مادة وابدأ التدريب.</p></div><button class="outline-btn" id="logoutBtn">تغيير الحساب</button></div>
       <div class="dashboard-filters"><label>الفصل <div class="select-wrap"><select id="semesterSelect"><option value="">كل الفصول</option><option>الفصل الأول</option><option>الفصل الثاني</option></select><span>⌄</span></div></label><label>الوحدة <div class="select-wrap"><select id="unitSelect"><option value="">كل الوحدات</option></select><span>⌄</span></div></label><label>الدرس <div class="select-wrap"><select id="lessonSelect"><option value="">كل الدروس</option></select><span>⌄</span></div></label><label>نوع التدريب <div class="select-wrap"><select id="typeSelect"><option value="all">كل الامتحانات</option><option value="practice">تدريب سريع</option><option value="exam">امتحان قصير</option></select><span>⌄</span></div></label></div>
       <section class="student-results" id="studentResults" hidden><strong>ملخّص تقدّمك</strong><span id="studentResultsText"></span></section>
+      <section class="student-hub" id="studentHub" aria-label="لوحة الطالب"><div class="student-hub-head"><div><span class="section-kicker">مساحتي الدراسية</span><h3>لوحة الطالب</h3><p>ملفك، إنجازك، نتائجك والأسئلة التي تحتاج مراجعتها في مكان واحد.</p></div><div class="student-identity"><b id="studentCardName">الطالب</b><span id="studentCardGrade">الصف</span><small id="studentCardPhone">رقم الهاتف المسجّل</small></div></div><div class="student-stat-grid"><article><b id="studentAttemptsCount">0</b><span>نماذج محلولة</span></article><article><b id="studentAverage">0%</b><span>متوسط العلامات</span></article><article><b id="studentBest">0%</b><span>أفضل نتيجة</span></article><article><b id="studentQuestionsTotal">0</b><span>أسئلة أجبت عنها</span></article></div><div class="student-hub-grid"><section class="student-hub-card"><h4>تقدمي حسب المادة</h4><p id="studentProgressLabel"></p><div id="studentSubjectProgress" class="student-subject-list"></div></section><section class="student-hub-card"><h4>سجل النتائج</h4><div id="studentAttemptHistory" class="student-history-list"></div></section></div><section class="student-hub-card student-mistakes-card"><h4>مراجعة الأخطاء</h4><p>راجع إجاباتك غير الصحيحة وافهم الإجابة الصحيحة.</p><div id="studentMistakeReview" class="student-mistake-list"></div></section></section>
       <div class="exam-grid" id="examGrid"></div>
     </section>
 
@@ -94,6 +95,7 @@
   <footer><a class="brand footer-brand" href="#"><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i><b>أ</b></span><span><strong>أساس</strong><small>بنك الامتحانات</small></span></a><span>تعلّم اليوم… وتقدّم كل يوم.</span></footer>
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
   <script src="teacher-config.js"></script>
+  <script src="../student-dashboard.js"></script>
   <script src="../app.js"></script>
 </body>
 </html>

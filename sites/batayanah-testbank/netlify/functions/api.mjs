@@ -154,9 +154,13 @@ export default async (req) => {
     if (req.method === "GET" && path === "/api/results") {
       const student = await studentSession(req);
       if (!student) return fail("سجّل الدخول أولاً.", 401);
-      const results = await db.sql`SELECT sub.name AS subject, e.title AS exam, a.score, a.total, a.completed_at
+      const results = await db.sql`SELECT sub.name AS subject, e.title AS exam, e.semester, e.unit, e.lesson, a.score, a.total, a.completed_at,
+          COALESCE(json_agg(json_build_object('question', q.prompt, 'selectedText', q.options ->> aa.selected_index,
+            'correctText', q.options ->> q.correct_index, 'explanation', q.explanation)) FILTER (WHERE aa.is_correct = FALSE), '[]'::json) AS mistakes
         FROM exam_attempts a JOIN exams e ON e.id = a.exam_id JOIN subjects sub ON sub.id = e.subject_id
-        WHERE a.student_id = ${student.id} AND e.teacher_slug = ${teacherSlug} ORDER BY a.completed_at DESC LIMIT 100`;
+        LEFT JOIN attempt_answers aa ON aa.attempt_id = a.id LEFT JOIN questions q ON q.id = aa.question_id
+        WHERE a.student_id = ${student.id} AND e.teacher_slug = ${teacherSlug}
+        GROUP BY a.id, sub.name, e.title, e.semester, e.unit, e.lesson ORDER BY a.completed_at DESC LIMIT 100`;
       return json({ results });
     }
 
