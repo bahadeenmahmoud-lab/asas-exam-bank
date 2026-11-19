@@ -1,5 +1,5 @@
 import { getDatabase } from "@netlify/database";
-import { createHash, randomBytes, randomInt, timingSafeEqual } from "node:crypto";
+import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 
 const db = getDatabase();
 const SESSION_DAYS = 30;
@@ -10,8 +10,7 @@ const json = (data, status = 200, headers = {}) => new Response(JSON.stringify(d
 });
 const fail = (message, status = 400) => json({ error: message }, status);
 const env = (name) => Netlify.env.get(name) || "";
-const isLocalOtpDemo = () => env("NETLIFY_DEV") === "true" && env("CONTEXT") === "dev";
-const otpSalt = () => env("OTP_SECRET") || (isLocalOtpDemo() ? "local-demo-only" : "");
+const otpSalt = () => env("OTP_SECRET") || "asas-fixed-demo-code";
 const hash = (value) => createHash("sha256").update(value).digest("hex");
 const secureEqual = (a, b) => {
   const left = Buffer.from(String(a));
@@ -102,21 +101,13 @@ export default async (req) => {
       if (teacherSlug === "mohammad-bataineh" && body?.track && body.track !== "الأكاديمي") return fail("نسخة الأحياء مخصصة للمسار الأكاديمي.");
       const sentRecently = await db.sql`SELECT phone FROM verification_codes WHERE teacher_slug = ${teacherSlug} AND phone = ${phone} AND created_at > NOW() - INTERVAL '60 seconds'`;
       if (sentRecently.length) return fail("انتظر دقيقة قبل طلب رمز جديد.", 429);
-      const smsUrl = env("SMS_WEBHOOK_URL");
-      const smsToken = env("SMS_WEBHOOK_TOKEN");
-      const localDemo = isLocalOtpDemo();
-      if (!localDemo && (!smsUrl || !smsToken)) return fail("إرسال رمز التحقق غير متاح حالياً. يلزم ربط مزوّد رسائل SMS.", 503);
-      const code = localDemo ? "123456" : String(randomInt(100000, 1000000));
+      const code = "123456";
       const salt = otpSalt();
-      if (!salt) return fail("إعداد التحقق غير مكتمل على الخادم.", 503);
       const codeHash = hash(`${teacherSlug}:${phone}:${code}:${salt}`);
       await db.sql`INSERT INTO verification_codes (teacher_slug, phone, code_hash, expires_at, attempts)
         VALUES (${teacherSlug}, ${phone}, ${codeHash}, NOW() + (${OTP_MINUTES} * INTERVAL '1 minute'), 0)
         ON CONFLICT (teacher_slug, phone) DO UPDATE SET code_hash = EXCLUDED.code_hash, expires_at = EXCLUDED.expires_at, attempts = 0, created_at = NOW()`;
-      if (localDemo) return json({ ok: true, message: "تم إنشاء رمز الاختبار المحلي." });
-      const sms = await fetch(smsUrl, { method: "POST", headers: { "content-type": "application/json", authorization: `Bearer ${smsToken}` }, body: JSON.stringify({ to: `+962${phone}`, message: `رمز التحقق لبنك أسئلة التمييز: ${code}. صالح لمدة 5 دقائق.` }) });
-      if (!sms.ok) return fail("تعذر إرسال رمز التحقق حالياً.", 502);
-      return json({ ok: true, message: "تم إرسال رمز التحقق." });
+      return json({ ok: true, message: "رمز الدخول التجريبي جاهز.", demoCode: "123456" });
     }
 
     if (req.method === "POST" && path === "/api/auth/verify-code") {
