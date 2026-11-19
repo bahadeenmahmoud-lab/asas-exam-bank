@@ -135,4 +135,5 @@ h1 { line-height: 1.35; }
 .teacher-banner p{margin:0;color:#63798b;line-height:1.7}
 .teacher-meta{display:flex;gap:9px;flex-wrap:wrap;margin-top:12px}
 .teacher-meta span{padding:6px 12px;border-radius:999px;background:#eaf5fb;color:#1978ad;font-size:.9rem;font-weight:700}
+.teacher-meta a{padding:6px 12px;border-radius:999px;background:#174b6d;color:#fff;font-size:.9rem;font-weight:700;text-decoration:none}
 @media(max-width:680px){.teacher-banner{margin:18px 14px 8px;padding:16px;grid-template-columns:76px 1fr;gap:14px;border-radius:18px}.teacher-banner img{width:76px;height:76px;border-radius:15px}.teacher-banner h2{font-size:1.15rem}.teacher-banner p{font-size:.9rem}}
