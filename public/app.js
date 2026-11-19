@@ -15,7 +15,6 @@ if (appConfig.teacherName) {
     banner.querySelector('[data-subject]').textContent = appConfig.subject;
     banner.querySelector('[data-grades]').textContent = appConfig.gradeCaption;
     banner.querySelector('[data-bio]').textContent = appConfig.bio;
-    banner.querySelector('[data-admin-link]').href = `/admin.html?teacher=${encodeURIComponent(appConfig.slug)}`;
     document.querySelector('.hero-trust').innerHTML = `<span>✓</span> المادة ${appConfig.subject} <b>•</b> ${appConfig.gradeCaption} <b>•</b> منصة أساس التعليمية`;
   }
 }

@@ -10,6 +10,8 @@ const json = (data, status = 200, headers = {}) => new Response(JSON.stringify(d
 });
 const fail = (message, status = 400) => json({ error: message }, status);
 const env = (name) => Netlify.env.get(name) || "";
+const isLocalOtpDemo = () => env("NETLIFY_DEV") === "true" && env("CONTEXT") === "dev";
+const otpSalt = () => env("OTP_SECRET") || (isLocalOtpDemo() ? "local-demo-only" : "");
 const hash = (value) => createHash("sha256").update(value).digest("hex");
 const secureEqual = (a, b) => {
   const left = Buffer.from(String(a));
@@ -105,14 +107,16 @@ export default async (req) => {
       if (sentRecently.length) return fail("انتظر دقيقة قبل طلب رمز جديد.", 429);
       const smsUrl = env("SMS_WEBHOOK_URL");
       const smsToken = env("SMS_WEBHOOK_TOKEN");
-      if (!smsUrl || !smsToken) return fail("إرسال رمز التحقق غير متاح حالياً. يلزم ربط مزوّد رسائل SMS.", 503);
-      const code = String(randomInt(100000, 1000000));
-      const salt = env("OTP_SECRET");
+      const localDemo = isLocalOtpDemo();
+      if (!localDemo && (!smsUrl || !smsToken)) return fail("إرسال رمز التحقق غير متاح حالياً. يلزم ربط مزوّد رسائل SMS.", 503);
+      const code = localDemo ? "123456" : String(randomInt(100000, 1000000));
+      const salt = otpSalt();
       if (!salt) return fail("إعداد التحقق غير مكتمل على الخادم.", 503);
       const codeHash = hash(`${teacherSlug}:${phone}:${code}:${salt}`);
       await db.sql`INSERT INTO verification_codes (teacher_slug, phone, code_hash, expires_at, attempts)
         VALUES (${teacherSlug}, ${phone}, ${codeHash}, NOW() + (${OTP_MINUTES} * INTERVAL '1 minute'), 0)
         ON CONFLICT (teacher_slug, phone) DO UPDATE SET code_hash = EXCLUDED.code_hash, expires_at = EXCLUDED.expires_at, attempts = 0, created_at = NOW()`;
+      if (localDemo) return json({ ok: true, message: "تم إنشاء رمز الاختبار المحلي." });
       const sms = await fetch(smsUrl, { method: "POST", headers: { "content-type": "application/json", authorization: `Bearer ${smsToken}` }, body: JSON.stringify({ to: `+962${phone}`, message: `رمز التحقق لبنك أسئلة التمييز: ${code}. صالح لمدة 5 دقائق.` }) });
       if (!sms.ok) return fail("تعذر إرسال رمز التحقق حالياً.", 502);
       return json({ ok: true, message: "تم إرسال رمز التحقق." });
@@ -124,7 +128,7 @@ export default async (req) => {
       const code = String(body?.code || "");
       const rows = await db.sql`SELECT code_hash FROM verification_codes WHERE teacher_slug = ${teacherSlug} AND phone = ${phone} AND expires_at > NOW() AND attempts < 5`;
       if (!rows[0]) return fail("انتهت صلاحية الرمز أو تجاوزت عدد المحاولات.", 401);
-      const expected = hash(`${teacherSlug}:${phone}:${code}:${env("OTP_SECRET")}`);
+      const expected = hash(`${teacherSlug}:${phone}:${code}:${otpSalt()}`);
       if (!secureEqual(rows[0].code_hash, expected)) {
         await db.sql`UPDATE verification_codes SET attempts = attempts + 1 WHERE teacher_slug = ${teacherSlug} AND phone = ${phone}`;
         return fail("رمز التحقق غير صحيح.", 401);
