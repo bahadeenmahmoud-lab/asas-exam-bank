@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#113f63">
+  <meta name="description" content="بنك أساس للامتحانات والتدريب المدرسي">
+  <title>بنك أساس | تعلّم وتدرّب</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Almarai:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="polish.css">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="#" aria-label="بنك أساس الرئيسية">
+      <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i><b>أ</b></span>
+      <span><strong>أساس</strong><small>بنك الامتحانات</small></span>
+    </a>
+    <div class="topbar-note"><span class="live-dot"></span> تدريبك يبدأ من هون</div>
+    <nav class="topbar-nav" aria-label="التنقل الرئيسي"><a class="topbar-link" href="tips.html">نصائح دراسية</a></nav>
+    <button class="profile-btn" id="profileBtn" hidden><span class="profile-avatar">ط</span><span id="profileName">حساب الطالب</span><span class="chevron">⌄</span></button>
+  </header>
+
+  <main>
+    <section class="hero" id="hero">
+      <div class="hero-content">
+        <div class="eyebrow"><span class="eyebrow-icon">✦</span> بنك أسئلة وامتحانات تفاعلي</div>
+        <h1>كل سؤال بقرّبك<br>من <span>العلامة اللي بدك إياها</span></h1>
+        <p>اختار صفك ومادتك، تدرّب على أسئلة متنوعة، وتابع تقدّمك خطوة بخطوة.</p>
+        <div class="hero-actions"><button class="primary-btn" id="startBtn">ابدأ التسجيل <span>←</span></button><a class="text-link" href="#how">كيف بشتغل؟</a></div>
+        <div class="hero-trust"><span>✓</span> تجربة بسيطة ومناسبة لكل طالب <b>•</b> من الصف الأول للتوجيهي</div>
+      </div>
+      <div class="hero-art" aria-hidden="true">
+        <div class="orbit orbit-one"></div><div class="orbit orbit-two"></div>
+        <div class="floating-card card-top"><span class="float-icon purple">✎</span><span><b>تدرّب براحتك</b><small>أسئلة تفاعلية</small></span></div>
+        <div class="book-illustration"><div class="book-spine"></div><div class="book-page left-page"><span class="page-line wide"></span><span class="page-line"></span><span class="page-line short"></span><span class="page-check">✓</span></div><div class="book-page right-page"><span class="page-title">سؤال اليوم</span><span class="page-line wide"></span><span class="page-line"></span><span class="page-line short"></span><span class="page-choice"><i></i><b></b></span><span class="page-choice"><i></i><b></b></span></div></div>
+        <div class="floating-card card-bottom"><span class="float-icon gold">★</span><span><b>خطوة ورا خطوة</b><small>اعرف نتيجتك فوراً</small></span></div>
+        <span class="spark spark-a">✦</span><span class="spark spark-b">✧</span>
+      </div>
+    </section>
+
+    <section class="feature-strip" id="how">
+      <div class="feature"><span class="feature-icon blue-icon">▦</span><div><b>لكل صف ومادة</b><small>اختار اللي بتدرسه</small></div></div>
+      <div class="feature"><span class="feature-icon purple-icon">✓</span><div><b>امتحانات تفاعلية</b><small>حلّ وتأكد من إجابتك</small></div></div>
+      <div class="feature"><span class="feature-icon gold-icon">↗</span><div><b>تابع تقدّمك</b><small>نتيجتك محفوظة عندك</small></div></div>
+    </section>
+
+    <section class="registration" id="registration">
+      <div class="section-heading"><span class="section-kicker">خلّينا نبلّش</span><h2>سجّل دخولك بسهولة</h2><p>اكتب معلوماتك عشان نجهّز لك المواد والامتحانات المناسبة لصفك.</p></div>
+      <div class="register-card" id="registerCard">
+        <div class="stepper"><div class="step active" id="stepOne"><span>١</span><small>بياناتك</small></div><i></i><div class="step" id="stepTwo"><span>٢</span><small>تأكيد الرقم</small></div></div>
+        <form id="registerForm" class="form-grid">
+          <label class="field full"><span>اسم الطالب</span><div class="input-wrap"><span class="input-icon">♙</span><input name="name" autocomplete="name" placeholder="مثال: أحمد محمد" required minlength="2"></div></label>
+          <label class="field full"><span>رقم الهاتف</span><div class="input-wrap phone-wrap"><span class="country-code">+962</span><input name="phone" type="tel" inputmode="numeric" autocomplete="tel-national" placeholder="7XXXXXXXX" pattern="7[0-9]{8}" required><span class="input-icon">⌕</span></div><small class="field-hint">أدخل رقم الموبايل الأردني بدون الصفر الأول.</small></label>
+          <label class="field full"><span>الصف</span><div class="select-wrap"><select name="grade" id="gradeSelect" required><option value="">اختار صفك</option></select><span>⌄</span></div></label>
+          <label class="field full" id="trackField" hidden><span>المسار / التخصص</span><div class="select-wrap"><select name="track" id="trackSelect"><option value="">اختار المسار</option><option>الأكاديمي</option><option>المهني</option></select><span>⌄</span></div></label>
+          <div class="form-error full" id="formError" role="alert" hidden></div>
+          <button class="primary-btn full" type="submit">أرسل رمز التحقق <span>←</span></button>
+          <div class="demo-note full"><span>ⓘ</span> هذه نسخة تجريبية. رمز التحقق للتجربة: <strong>123456</strong></div>
+        </form>
+        <form id="verifyForm" class="verify-form" hidden>
+          <div class="verify-badge">✉</div><h3>تأكيد رقمك</h3><p>أدخل الرمز المكوّن من ٦ أرقام المرسل إلى<br><b id="phonePreview">+962 7XXXXXXXX</b></p>
+          <label class="field"><span>رمز التحقق</span><input class="otp-input" name="otp" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="••••••" required></label>
+          <div class="form-error" id="verifyError" role="alert" hidden></div>
+          <button class="primary-btn full" type="submit">تأكيد ومتابعة <span>←</span></button>
+          <button type="button" class="back-link" id="backBtn">تعديل رقم الهاتف</button>
+          <div class="demo-note" id="demoOtpNote"><span>ⓘ</span> رمز التجربة هو <strong>123456</strong></div>
+        </form>
+      </div>
+    </section>
+
+    <section class="dashboard" id="dashboard" hidden>
+      <div class="dashboard-heading"><div><span class="section-kicker">جاهز للتحدّي؟</span><h2>موادك وامتحاناتك</h2><p id="welcomeText">اختار مادة وابدأ التدريب.</p></div><button class="outline-btn" id="logoutBtn">تغيير الحساب</button></div>
+      <div class="dashboard-filters"><label>المادة <div class="select-wrap"><select id="subjectSelect"><option value="">كل المواد</option></select><span>⌄</span></div></label><label>نوع التدريب <div class="select-wrap"><select id="typeSelect"><option value="all">كل الامتحانات</option><option value="practice">تدريب سريع</option><option value="exam">امتحان قصير</option></select><span>⌄</span></div></label></div>
+      <section class="student-results" id="studentResults" hidden><strong>ملخّص تقدّمك</strong><span id="studentResultsText"></span></section>
+      <div class="exam-grid" id="examGrid"></div>
+    </section>
+
+    <section class="question-view" id="questionView" hidden>
+      <button class="back-link" id="backToExams">← الرجوع للامتحانات</button>
+      <div class="question-card">
+        <div class="question-top"><span class="exam-tag" id="questionSubject">المادة</span><span class="question-count" id="questionCount">السؤال 1 من 5</span></div>
+        <div class="progress-track"><i id="progressBar"></i></div>
+        <h2 id="questionText">نص السؤال</h2><div class="answers" id="answers"></div>
+        <div class="answer-feedback" id="feedback" hidden></div>
+        <button class="primary-btn" id="nextQuestion" disabled>تحقق من الإجابة <span>←</span></button>
+      </div>
+    </section>
+  </main>
+
+  <footer><a class="brand footer-brand" href="#"><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i><b>أ</b></span><span><strong>أساس</strong><small>بنك الامتحانات</small></span></a><span>تعلّم اليوم… وتقدّم كل يوم.</span><small>نسخة تجريبية — قيد إعداد المحتوى</small></footer>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <script src="app.js"></script>
+</body>
+</html>
