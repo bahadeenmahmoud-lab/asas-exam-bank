@@ -1,9 +1,11 @@
 const $ = (id) => document.getElementById(id);
 let bankResults = [];
 let bankStudents = [];
+const teacherSlug = new URLSearchParams(location.search).get("teacher") || "asas";
+const apiHeaders = { "content-type": "application/json", "x-teacher-slug": teacherSlug };
 
 async function api(path, options = {}) {
-  const response = await fetch(path, { credentials: "same-origin", ...options, headers: { "content-type": "application/json", ...(options.headers || {}) } });
+  const response = await fetch(path, { credentials: "same-origin", ...options, headers: { ...apiHeaders, ...(options.headers || {}) } });
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(payload.error || "تعذر تنفيذ الطلب.");
   return payload;
@@ -41,10 +43,11 @@ async function refreshAdmin() {
 
 const gradeSelect = $("examGrade");
 const textbookPages = { 1: 68, 2: 69, 3: 70, 4: 71, 5: 72, 6: 73, 7: 74, 8: 75, 9: 76, 10: 77 };
-for (let grade = 1; grade <= 10; grade++) {
+const gradeValues = teacherSlug === "mohammad-bataineh" ? [12] : teacherSlug === "maher-abu-bakr" ? [11, 12] : Array.from({length:12}, (_, i) => i + 1);
+for (const grade of gradeValues) {
   const option = document.createElement("option"); option.value = String(grade); option.textContent = `الصف ${grade}`; gradeSelect.append(option);
 }
-gradeSelect.addEventListener("change", () => { $("sourceReference").value = `https://nccd.gov.jo/ar/pages/TextBooksGrade/${textbookPages[gradeSelect.value]}`; });
+gradeSelect.addEventListener("change", () => { const page = textbookPages[gradeSelect.value]; $("sourceReference").value = page ? `https://nccd.gov.jo/ar/pages/TextBooksGrade/${page}` : ""; });
 for (let number = 1; number <= 15; number++) {
   const fieldset = document.createElement("fieldset");
   fieldset.innerHTML = `<legend>السؤال ${number}</legend>
