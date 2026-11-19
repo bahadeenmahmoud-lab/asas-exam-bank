@@ -6,5 +6,5 @@ window.ASAS_CONFIG = {
   gradeCaption: 'الأول الثانوي والتوجيهي',
   bio: 'معلم اللغة العربية على منصة أساس التعليمية.',
   photo: 'https://www.asas4edu.net/store/5/WhatsApp%20Image%202026-04-22%20at%202.23.21%20PM.jpeg',
-  grades: [{value:'11', label:'الأول الثانوي'}, {value:'12', label:'التوجيهي'}], requireTrack: false
+  grades: [{value:'11', label:'الأول الثانوي'}, {value:'12', label:'التوجيهي'}], cohorts: [{value:'2008',label:'توجيهي 2008'},{value:'2009',label:'توجيهي 2009'}], requireTrack: false
 };
