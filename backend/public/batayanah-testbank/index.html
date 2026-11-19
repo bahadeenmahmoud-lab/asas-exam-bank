@@ -55,7 +55,7 @@
         <form id="registerForm" class="form-grid">
           <label class="field full"><span>اسم الطالب</span><div class="input-wrap"><span class="input-icon">♙</span><input name="name" autocomplete="name" placeholder="مثال: أحمد محمد" required minlength="2"></div></label>
           <label class="field full"><span>رقم الهاتف</span><div class="input-wrap phone-wrap"><span class="country-code">+962</span><input name="phone" type="tel" inputmode="numeric" autocomplete="tel-national" placeholder="7XXXXXXXX" pattern="7[0-9]{8}" required><span class="input-icon">⌕</span></div><small class="field-hint">أدخل رقم الموبايل الأردني بدون الصفر الأول.</small></label>
-          <label class="field full"><span>الصف</span><div class="select-wrap"><select name="grade" id="gradeSelect" required><option value="">التوجيهي</option></select><span>⌄</span></div><small class="field-hint">المسار الأكاديمي — الأحياء للتوجيهي.</small></label>
+          <label class="field full"><span>جيل التوجيهي</span><div class="select-wrap"><select name="cohort" id="cohortSelect" required><option value="">اختر جيلك</option><option value="2008">توجيهي 2008</option><option value="2009">توجيهي 2009</option></select><span>⌄</span></div><small class="field-hint">اختر جيلك لعرض نماذج الأحياء المناسبة.</small></label><label class="field full" hidden><span>الصف</span><div class="select-wrap"><select name="grade" id="gradeSelect" required><option value="12">التوجيهي</option></select><span>⌄</span></div><small class="field-hint">المسار الأكاديمي — الأحياء للتوجيهي.</small></label>
           
           <div class="form-error full" id="formError" role="alert" hidden></div>
           <button class="primary-btn full" type="submit">متابعة برمز الدخول <span>←</span></button>
@@ -74,7 +74,7 @@
 
     <section class="dashboard" id="dashboard" hidden>
       <div class="dashboard-heading"><div><span class="section-kicker">جاهز للتحدّي؟</span><h2>موادك وامتحاناتك</h2><p id="welcomeText">اختار مادة وابدأ التدريب.</p></div><button class="outline-btn" id="logoutBtn">تغيير الحساب</button></div>
-      <div class="dashboard-filters"><label>المادة <div class="select-wrap"><select id="subjectSelect"><option value="">كل المواد</option></select><span>⌄</span></div></label><label>نوع التدريب <div class="select-wrap"><select id="typeSelect"><option value="all">كل الامتحانات</option><option value="practice">تدريب سريع</option><option value="exam">امتحان قصير</option></select><span>⌄</span></div></label></div>
+      <div class="dashboard-filters"><label>الفصل <div class="select-wrap"><select id="semesterSelect"><option value="">كل الفصول</option><option>الفصل الأول</option><option>الفصل الثاني</option></select><span>⌄</span></div></label><label>الوحدة <div class="select-wrap"><select id="unitSelect"><option value="">كل الوحدات</option></select><span>⌄</span></div></label><label>الدرس <div class="select-wrap"><select id="lessonSelect"><option value="">كل الدروس</option></select><span>⌄</span></div></label><label>نوع التدريب <div class="select-wrap"><select id="typeSelect"><option value="all">كل الامتحانات</option><option value="practice">تدريب سريع</option><option value="exam">امتحان قصير</option></select><span>⌄</span></div></label></div>
       <section class="student-results" id="studentResults" hidden><strong>ملخّص تقدّمك</strong><span id="studentResultsText"></span></section>
       <div class="exam-grid" id="examGrid"></div>
     </section>
