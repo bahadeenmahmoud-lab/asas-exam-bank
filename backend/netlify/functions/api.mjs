@@ -102,8 +102,6 @@ export default async (req) => {
       const name = String(body?.name || "").trim().slice(0, 100);
       if (!name || !validPhone(phone) || !Number.isInteger(grade) || !validGradeForTeacher(teacherSlug, grade)) return fail("أدخل الاسم ورقم هاتف أردني وصفاً متاحاً بشكل صحيح.");
       if (teacherSlug === "mohammad-bataineh" && body?.track && body.track !== "الأكاديمي") return fail("نسخة الأحياء مخصصة للمسار الأكاديمي.");
-      const sentRecently = await db.sql`SELECT phone FROM verification_codes WHERE teacher_slug = ${teacherSlug} AND phone = ${phone} AND created_at > NOW() - INTERVAL '60 seconds'`;
-      if (sentRecently.length) return fail("انتظر دقيقة قبل طلب رمز جديد.", 429);
       const code = "1223456";
       const salt = otpSalt();
       const codeHash = hash(`${teacherSlug}:${phone}:${code}:${salt}`);
