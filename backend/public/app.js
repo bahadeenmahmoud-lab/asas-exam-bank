@@ -69,7 +69,7 @@ const registerForm=el('registerForm'),verifyForm=el('verifyForm'),gradeSelect=el
 let backendReady=false,serverExams=[],answerSelections=[];
 const backendProbe=fetch('/api/health',{cache:'no-store',headers:apiHeaders}).then(r=>r.ok).catch(()=>false);
 backendProbe.then(ready=>{backendReady=ready;if(ready&&localStorage.getItem(profileStorageKey))loadServerExams()});
-grades.forEach(g=>{const o=document.createElement('option');o.value=g.value;o.textContent=g.label;gradeSelect.append(o)});if(appConfig.slug==='mohammad-bataineh'&&grades.length===1){gradeSelect.value=grades[0].value;gradeSelect.closest('.field').hidden=true}
+grades.forEach(g=>{const o=document.createElement('option');o.value=g.value;o.textContent=g.label;gradeSelect.append(o)});if(appConfig.slug==='mohammad-bataineh'&&grades.length===1){gradeSelect.value=grades[0].value;gradeSelect.closest('.field').hidden=true;gradeSelect.closest('.field').style.display='none'}
 function updateTrackField(){if(!trackField||!trackSelect)return;const enabled=['10','11','12'].includes(gradeSelect.value)&&appConfig.requireTrack!==false;trackField.hidden=!enabled;trackField.style.display=enabled?'':'none';trackSelect.required=enabled;if(!enabled)trackSelect.value=''}
 gradeSelect.addEventListener('change',updateTrackField);
 updateTrackField();
