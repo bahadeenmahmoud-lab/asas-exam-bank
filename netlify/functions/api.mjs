@@ -24,13 +24,26 @@ const validPhone = (phone) => /^7[789][0-9]{7}$/.test(phone);
 const cookieValue = (req, name) => (req.headers.get("cookie") || "").split(";").map((part) => part.trim()).find((part) => part.startsWith(`${name}=`))?.slice(name.length + 1) || "";
 const setCookie = (name, value, maxAge) => `${name}=${value}; Path=/; Max-Age=${maxAge}; HttpOnly; Secure; SameSite=Lax`;
 const clearCookie = (name) => `${name}=; Path=/; Max-Age=0; HttpOnly; Secure; SameSite=Lax`;
+const teacherSlugs = new Set(["asas", "mohammad-bataineh", "maher-abu-bakr"]);
+const teacherFor = (req) => {
+  const value = req.headers.get("x-teacher-slug") || "asas";
+  return teacherSlugs.has(value) ? value : "asas";
+};
+const validGradeForTeacher = (slug, grade) => slug === "mohammad-bataineh"
+  ? Number(grade) === 12
+  : slug === "maher-abu-bakr"
+    ? [11, 12].includes(Number(grade))
+    : Number(grade) >= 1 && Number(grade) <= 12;
+const subjectForTeacher = (slug) => slug === "mohammad-bataineh" ? "الأحياء"
+  : slug === "maher-abu-bakr" ? "اللغة العربية" : "";
 
 async function studentSession(req) {
   const token = cookieValue(req, "asas_student");
   if (!token) return null;
-  const rows = await db.sql`SELECT s.id, s.full_name, s.phone, s.grade, s.track
+  const rows = await db.sql`SELECT s.id, s.full_name, s.phone, s.grade, s.track, s.teacher_slug
     FROM student_sessions ss JOIN students s ON s.id = ss.student_id
     WHERE ss.token_hash = ${hash(token)} AND ss.expires_at > NOW()`;
+  if (rows[0]?.teacher_slug !== teacherFor(req)) return null;
   return rows[0] || null;
 }
 
@@ -38,14 +51,15 @@ async function requireAdmin(req) {
   const token = cookieValue(req, "asas_admin");
   if (!token) return false;
   const rows = await db.sql`SELECT token_hash FROM admin_sessions
-    WHERE token_hash = ${hash(token)} AND expires_at > NOW()`;
+    WHERE token_hash = ${hash(token)} AND teacher_slug = ${teacherFor(req)} AND expires_at > NOW()`;
   return Boolean(rows[0]);
 }
 
-async function upsertExam(payload) {
+async function upsertExam(payload, teacherSlug = "asas") {
   const { grade, subject, semester = "الفصل الأول", academicYear = "2026-2027", sourceReference = "", model, questions } = payload || {};
-  if (!Number.isInteger(Number(grade)) || Number(grade) < 1 || Number(grade) > 10) throw new Error("الصف يجب أن يكون من 1 إلى 10.");
+  if (!Number.isInteger(Number(grade)) || Number(grade) < 1 || Number(grade) > 12) throw new Error("الصف يجب أن يكون من 1 إلى 12.");
   if (!String(subject || "").trim()) throw new Error("اسم المادة مطلوب.");
+  if (!validGradeForTeacher(teacherSlug, grade) || (subjectForTeacher(teacherSlug) && subject.trim() !== subjectForTeacher(teacherSlug))) throw new Error("الصف أو المادة غير متاحان لهذه النسخة.");
   if (!Number.isInteger(Number(model)) || Number(model) < 1 || Number(model) > 3) throw new Error("رقم النموذج يجب أن يكون من 1 إلى 3.");
   if (!Array.isArray(questions) || questions.length !== 15) throw new Error("يجب أن يحتوي كل نموذج على 15 سؤالاً.");
   for (const [i, q] of questions.entries()) {
@@ -53,11 +67,11 @@ async function upsertExam(payload) {
       throw new Error(`بيانات السؤال ${i + 1} غير مكتملة.`);
     }
   }
-  const sub = await db.sql`INSERT INTO subjects (grade, name) VALUES (${Number(grade)}, ${String(subject).trim()})
-    ON CONFLICT (grade, name) DO UPDATE SET active = TRUE RETURNING id`;
-  const exam = await db.sql`INSERT INTO exams (grade, subject_id, title, semester, academic_year, source_reference, model, status)
-    VALUES (${Number(grade)}, ${sub[0].id}, ${`النموذج ${model} — ${subject}`}, ${semester}, ${String(academicYear)}, ${String(sourceReference)}, ${Number(model)}, 'published')
-    ON CONFLICT (grade, subject_id, semester, academic_year, model) DO UPDATE SET title = EXCLUDED.title, source_reference = EXCLUDED.source_reference, status = 'published'
+  const sub = await db.sql`INSERT INTO subjects (teacher_slug, grade, name) VALUES (${teacherSlug}, ${Number(grade)}, ${String(subject).trim()})
+    ON CONFLICT (teacher_slug, grade, name) DO UPDATE SET active = TRUE RETURNING id`;
+  const exam = await db.sql`INSERT INTO exams (teacher_slug, grade, subject_id, title, semester, academic_year, source_reference, model, status)
+    VALUES (${teacherSlug}, ${Number(grade)}, ${sub[0].id}, ${`النموذج ${model} — ${subject}`}, ${semester}, ${String(academicYear)}, ${String(sourceReference)}, ${Number(model)}, 'published')
+    ON CONFLICT (teacher_slug, grade, subject_id, semester, academic_year, model) DO UPDATE SET title = EXCLUDED.title, source_reference = EXCLUDED.source_reference, status = 'published'
     RETURNING id`;
   await db.sql`DELETE FROM questions WHERE exam_id = ${exam[0].id}`;
   for (const [i, q] of questions.entries()) {
@@ -71,6 +85,7 @@ export default async (req) => {
   try {
     const url = new URL(req.url);
     const path = url.pathname.replace(/\/$/, "") || "/";
+    const teacherSlug = teacherFor(req);
 
     if (req.method === "GET" && path === "/api/health") {
       await db.sql`SELECT 1`;
@@ -82,20 +97,19 @@ export default async (req) => {
       const phone = phoneOnly(body?.phone);
       const grade = Number(body?.grade);
       const name = String(body?.name || "").trim().slice(0, 100);
-      if (!name || !validPhone(phone) || !Number.isInteger(grade) || grade < 1 || grade > 10) return fail("أدخل الاسم ورقم هاتف أردني والصف بشكل صحيح.");
-      const sentRecently = await db.sql`SELECT phone FROM verification_codes WHERE phone = ${phone} AND created_at > NOW() - INTERVAL '60 seconds'`;
+      if (!name || !validPhone(phone) || !Number.isInteger(grade) || !validGradeForTeacher(teacherSlug, grade)) return fail("أدخل الاسم ورقم هاتف أردني وصفاً متاحاً بشكل صحيح.");
+      const sentRecently = await db.sql`SELECT phone FROM verification_codes WHERE teacher_slug = ${teacherSlug} AND phone = ${phone} AND created_at > NOW() - INTERVAL '60 seconds'`;
       if (sentRecently.length) return fail("انتظر دقيقة قبل طلب رمز جديد.", 429);
-      const code = env("OTP_DEMO_MODE") === "true" ? "123456" : String(randomInt(100000, 1000000));
-      const salt = env("OTP_SECRET");
-      if (!salt) return fail("إعداد التحقق غير مكتمل على الخادم.", 503);
-      const codeHash = hash(`${phone}:${code}:${salt}`);
-      await db.sql`INSERT INTO verification_codes (phone, code_hash, expires_at, attempts)
-        VALUES (${phone}, ${codeHash}, NOW() + (${OTP_MINUTES} * INTERVAL '1 minute'), 0)
-        ON CONFLICT (phone) DO UPDATE SET code_hash = EXCLUDED.code_hash, expires_at = EXCLUDED.expires_at, attempts = 0, created_at = NOW()`;
-      if (env("OTP_DEMO_MODE") === "true") return json({ ok: true, demo: true, message: "رمز تجربة مؤقت أُرسل بنجاح.", demoCode: code });
       const smsUrl = env("SMS_WEBHOOK_URL");
       const smsToken = env("SMS_WEBHOOK_TOKEN");
-      if (!smsUrl || !smsToken) return fail("خدمة الرسائل غير مربوطة بعد. يلزم إعداد مزوّد SMS.", 503);
+      if (!smsUrl || !smsToken) return fail("إرسال رمز التحقق غير متاح حالياً. يلزم ربط مزوّد رسائل SMS.", 503);
+      const code = String(randomInt(100000, 1000000));
+      const salt = env("OTP_SECRET");
+      if (!salt) return fail("إعداد التحقق غير مكتمل على الخادم.", 503);
+      const codeHash = hash(`${teacherSlug}:${phone}:${code}:${salt}`);
+      await db.sql`INSERT INTO verification_codes (teacher_slug, phone, code_hash, expires_at, attempts)
+        VALUES (${teacherSlug}, ${phone}, ${codeHash}, NOW() + (${OTP_MINUTES} * INTERVAL '1 minute'), 0)
+        ON CONFLICT (teacher_slug, phone) DO UPDATE SET code_hash = EXCLUDED.code_hash, expires_at = EXCLUDED.expires_at, attempts = 0, created_at = NOW()`;
       const sms = await fetch(smsUrl, { method: "POST", headers: { "content-type": "application/json", authorization: `Bearer ${smsToken}` }, body: JSON.stringify({ to: `+962${phone}`, message: `رمز التحقق لبنك أسئلة التمييز: ${code}. صالح لمدة 5 دقائق.` }) });
       if (!sms.ok) return fail("تعذر إرسال رمز التحقق حالياً.", 502);
       return json({ ok: true, message: "تم إرسال رمز التحقق." });
@@ -105,21 +119,21 @@ export default async (req) => {
       const body = await parseBody(req);
       const phone = phoneOnly(body?.phone);
       const code = String(body?.code || "");
-      const rows = await db.sql`SELECT code_hash FROM verification_codes WHERE phone = ${phone} AND expires_at > NOW() AND attempts < 5`;
+      const rows = await db.sql`SELECT code_hash FROM verification_codes WHERE teacher_slug = ${teacherSlug} AND phone = ${phone} AND expires_at > NOW() AND attempts < 5`;
       if (!rows[0]) return fail("انتهت صلاحية الرمز أو تجاوزت عدد المحاولات.", 401);
-      const expected = hash(`${phone}:${code}:${env("OTP_SECRET")}`);
+      const expected = hash(`${teacherSlug}:${phone}:${code}:${env("OTP_SECRET")}`);
       if (!secureEqual(rows[0].code_hash, expected)) {
-        await db.sql`UPDATE verification_codes SET attempts = attempts + 1 WHERE phone = ${phone}`;
+        await db.sql`UPDATE verification_codes SET attempts = attempts + 1 WHERE teacher_slug = ${teacherSlug} AND phone = ${phone}`;
         return fail("رمز التحقق غير صحيح.", 401);
       }
-      const prior = await db.sql`SELECT full_name, grade, track FROM students WHERE phone = ${phone}`;
+      const prior = await db.sql`SELECT full_name, grade, track FROM students WHERE teacher_slug = ${teacherSlug} AND phone = ${phone}`;
       const name = String(body?.name || prior[0]?.full_name || "").trim().slice(0, 100);
       const grade = Number(body?.grade || prior[0]?.grade);
-      if (!name || !Number.isInteger(grade) || grade < 1 || grade > 10) return fail("بيانات الطالب غير مكتملة.");
-      const student = await db.sql`INSERT INTO students (full_name, phone, grade, track) VALUES (${name}, ${phone}, ${grade}, ${String(body?.track || "")})
-        ON CONFLICT (phone) DO UPDATE SET full_name = EXCLUDED.full_name, grade = EXCLUDED.grade, track = EXCLUDED.track, last_seen_at = NOW()
+      if (!name || !Number.isInteger(grade) || !validGradeForTeacher(teacherSlug, grade)) return fail("بيانات الطالب غير مكتملة.");
+      const student = await db.sql`INSERT INTO students (teacher_slug, full_name, phone, grade, track) VALUES (${teacherSlug}, ${name}, ${phone}, ${grade}, ${String(body?.track || "")})
+        ON CONFLICT (teacher_slug, phone) DO UPDATE SET full_name = EXCLUDED.full_name, grade = EXCLUDED.grade, track = EXCLUDED.track, last_seen_at = NOW()
         RETURNING id, full_name, phone, grade, track`;
-      await db.sql`DELETE FROM verification_codes WHERE phone = ${phone}`;
+      await db.sql`DELETE FROM verification_codes WHERE teacher_slug = ${teacherSlug} AND phone = ${phone}`;
       const token = randomBytes(32).toString("base64url");
       const ttl = SESSION_DAYS * 24 * 60 * 60;
       await db.sql`INSERT INTO student_sessions (token_hash, student_id, expires_at) VALUES (${hash(token)}, ${student[0].id}, NOW() + (${ttl} * INTERVAL '1 second'))`;
@@ -134,10 +148,10 @@ export default async (req) => {
 
     if (req.method === "GET" && path === "/api/catalog") {
       const grade = Number(url.searchParams.get("grade"));
-      if (!Number.isInteger(grade) || grade < 1 || grade > 10) return fail("صف غير صالح.");
+      if (!Number.isInteger(grade) || !validGradeForTeacher(teacherSlug, grade)) return fail("صف غير صالح.");
       const exams = await db.sql`SELECT e.id, e.grade, s.name AS subject, e.title, e.semester, e.model,
           (SELECT COUNT(*) FROM questions q WHERE q.exam_id = e.id) AS question_count
-        FROM exams e JOIN subjects s ON s.id = e.subject_id WHERE e.grade = ${grade} AND e.status = 'published'
+        FROM exams e JOIN subjects s ON s.id = e.subject_id WHERE e.teacher_slug = ${teacherSlug} AND e.grade = ${grade} AND e.status = 'published'
         ORDER BY s.name, e.semester, e.model`;
       return json({ grade, exams });
     }
@@ -147,7 +161,7 @@ export default async (req) => {
       if (!student) return fail("سجّل الدخول أولاً.", 401);
       const results = await db.sql`SELECT sub.name AS subject, e.title AS exam, a.score, a.total, a.completed_at
         FROM exam_attempts a JOIN exams e ON e.id = a.exam_id JOIN subjects sub ON sub.id = e.subject_id
-        WHERE a.student_id = ${student.id} ORDER BY a.completed_at DESC LIMIT 100`;
+        WHERE a.student_id = ${student.id} AND e.teacher_slug = ${teacherSlug} ORDER BY a.completed_at DESC LIMIT 100`;
       return json({ results });
     }
 
@@ -155,7 +169,7 @@ export default async (req) => {
       const examId = Number(path.split("/").pop());
       const student = await studentSession(req);
       if (!student) return fail("سجّل الدخول أولاً.", 401);
-      const exams = await db.sql`SELECT id, grade FROM exams WHERE id = ${examId} AND status = 'published'`;
+      const exams = await db.sql`SELECT id, grade FROM exams WHERE id = ${examId} AND teacher_slug = ${teacherSlug} AND status = 'published'`;
       if (!exams[0] || Number(exams[0].grade) !== Number(student.grade)) return fail("الامتحان غير متاح لهذا الصف.", 404);
       const questions = await db.sql`SELECT id, position, prompt, options FROM questions WHERE exam_id = ${examId} ORDER BY position`;
       return json({ examId, questions });
@@ -169,7 +183,7 @@ export default async (req) => {
       const answers = body?.answers;
       if (!Number.isInteger(examId) || !Array.isArray(answers)) return fail("بيانات الامتحان غير مكتملة.");
       const questions = await db.sql`SELECT q.id, q.correct_index FROM questions q JOIN exams e ON e.id = q.exam_id
-        WHERE e.id = ${examId} AND e.grade = ${student.grade} AND e.status = 'published' ORDER BY q.position`;
+        WHERE e.id = ${examId} AND e.teacher_slug = ${teacherSlug} AND e.grade = ${student.grade} AND e.status = 'published' ORDER BY q.position`;
       if (!questions.length || answers.length !== questions.length) return fail("الامتحان أو الإجابات غير مكتملة.");
       const byId = new Map(answers.map((a) => [Number(a.questionId), Number(a.selectedIndex)]));
       const scored = questions.map((q) => ({ id: Number(q.id), choice: byId.get(Number(q.id)), correct: Number(q.correct_index) }));
@@ -190,7 +204,7 @@ export default async (req) => {
       if (!secureEqual(password, configured)) return fail("كلمة المرور غير صحيحة.", 401);
       const token = randomBytes(32).toString("base64url");
       const ttl = 8 * 60 * 60;
-      await db.sql`INSERT INTO admin_sessions (token_hash, expires_at) VALUES (${hash(token)}, NOW() + (${ttl} * INTERVAL '1 second'))`;
+      await db.sql`INSERT INTO admin_sessions (token_hash, teacher_slug, expires_at) VALUES (${hash(token)}, ${teacherSlug}, NOW() + (${ttl} * INTERVAL '1 second'))`;
       return json({ ok: true }, 200, { "set-cookie": setCookie("asas_admin", token, ttl) });
     }
 
@@ -198,14 +212,14 @@ export default async (req) => {
 
     if (req.method === "GET" && path === "/api/admin/overview") {
       const [students, attempts, exams] = await Promise.all([
-        db.sql`SELECT COUNT(*)::int AS count FROM students`,
-        db.sql`SELECT COUNT(*)::int AS count FROM exam_attempts`,
-        db.sql`SELECT COUNT(*)::int AS count FROM exams`
+        db.sql`SELECT COUNT(*)::int AS count FROM students WHERE teacher_slug = ${teacherSlug}`,
+        db.sql`SELECT COUNT(*)::int AS count FROM exam_attempts a JOIN students s ON s.id = a.student_id WHERE s.teacher_slug = ${teacherSlug}`,
+        db.sql`SELECT COUNT(*)::int AS count FROM exams WHERE teacher_slug = ${teacherSlug}`
       ]);
       const results = await db.sql`SELECT s.full_name, s.phone, s.grade, sub.name AS subject, e.title AS exam,
           a.score, a.total, a.completed_at
         FROM exam_attempts a JOIN students s ON s.id = a.student_id JOIN exams e ON e.id = a.exam_id
-        JOIN subjects sub ON sub.id = e.subject_id ORDER BY a.completed_at DESC LIMIT 500`;
+        JOIN subjects sub ON sub.id = e.subject_id WHERE e.teacher_slug = ${teacherSlug} ORDER BY a.completed_at DESC LIMIT 500`;
       return json({ counts: { students: students[0].count, attempts: attempts[0].count, exams: exams[0].count }, results });
     }
 
@@ -213,13 +227,13 @@ export default async (req) => {
       const students = await db.sql`SELECT s.full_name, s.phone, s.grade, s.track, s.created_at,
           COUNT(a.id)::int AS attempts, COALESCE(MAX(a.completed_at), s.created_at) AS last_activity
         FROM students s LEFT JOIN exam_attempts a ON a.student_id = s.id
-        GROUP BY s.id ORDER BY s.created_at DESC LIMIT 5000`;
+        WHERE s.teacher_slug = ${teacherSlug} GROUP BY s.id ORDER BY s.created_at DESC LIMIT 5000`;
       return json({ students });
     }
 
     if (req.method === "POST" && path === "/api/admin/import-exam") {
       const body = await parseBody(req);
-      try { const examId = await upsertExam(body); return json({ ok: true, examId }); }
+      try { const examId = await upsertExam(body, teacherSlug); return json({ ok: true, examId }); }
       catch (error) { return fail(error.message); }
     }
 
@@ -228,7 +242,7 @@ export default async (req) => {
       if (!Array.isArray(body?.exams) || !body.exams.length) return fail("ملف الاستيراد يجب أن يحتوي على قائمة exams.");
       const imported = [];
       for (const exam of body.exams) {
-        try { imported.push(await upsertExam(exam)); }
+        try { imported.push(await upsertExam(exam, teacherSlug)); }
         catch (error) { return fail(`تعذر استيراد نموذج ${exam?.model || "؟"}: ${error.message}`); }
       }
       return json({ ok: true, imported: imported.length });
