@@ -1,0 +1,59 @@
+/* لوحة الطالب — تستخدم ألوان الموقع من styles.css */
+.student-dashboard{background:var(--surface,#fff);border:1px solid var(--line,#e5edf2);border-radius:22px;box-shadow:var(--shadow,0 18px 55px rgba(21,61,92,.11));padding:22px;margin:0 0 22px;color:var(--ink,#18334a)}
+.student-results.sd-hide-old{display:none!important}
+.sd-head{display:flex;align-items:center;gap:14px;margin-bottom:18px}
+.sd-avatar{width:54px;height:54px;border-radius:50%;background:linear-gradient(135deg,var(--navy,#113f63),var(--blue,#238bcb));color:#fff;display:grid;place-items:center;font-size:24px;font-weight:800;flex:none}
+.sd-id{flex:1;min-width:0}
+.sd-id h3{margin:0 0 4px;font-size:20px;font-weight:800}
+.sd-id p{margin:0;color:var(--muted,#718395);font-size:14px}
+.sd-dot{margin:0 4px}
+.sd-badge{padding:7px 14px;border-radius:999px;font-weight:800;font-size:13px;white-space:nowrap}
+.sd-kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px}
+.sd-kpi{background:var(--sky,#eaf5fb);border-radius:16px;padding:14px 12px;text-align:center}
+.sd-kpi strong{display:block;font-size:24px;font-weight:800;color:var(--navy,#113f63);line-height:1.2}
+.sd-kpi strong.sd-kpi-txt{font-size:16px;padding:5px 0}
+.sd-kpi span{font-size:13px;color:var(--muted,#718395)}
+.sd-cover{margin-bottom:16px}
+.sd-cover-top{display:flex;justify-content:space-between;font-size:14px;margin-bottom:6px}
+.sd-cover-top strong{color:var(--navy,#113f63)}
+.sd-bar{height:12px;background:var(--line,#e5edf2);border-radius:999px;overflow:hidden}
+.sd-bar i{display:block;height:100%;background:linear-gradient(90deg,var(--blue,#238bcb),var(--green,#1a966e));border-radius:inherit;transition:width .6s ease}
+.sd-bar-sm{height:8px}
+.sd-next{display:flex;align-items:center;justify-content:space-between;gap:12px;background:#fff8e6;border:1px solid #f3dc97;border-radius:16px;padding:14px 16px;margin-bottom:16px}
+.sd-next small{display:block;color:#8a6a10;font-size:12px}
+.sd-next strong{display:block;font-size:16px;margin:2px 0}
+.sd-next span{font-size:13px;color:var(--muted,#718395)}
+.sd-go{background:var(--navy,#113f63);color:#fff;border:0;border-radius:12px;padding:10px 18px;font:inherit;font-weight:800;cursor:pointer;white-space:nowrap}
+.sd-go:hover{background:var(--navy-2,#174f78)}
+.sd-cols{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.sd-card{border:1px solid var(--line,#e5edf2);border-radius:16px;padding:16px}
+.sd-card h4{margin:0 0 12px;font-size:16px;font-weight:800}
+.sd-mt{margin-top:18px!important}
+.sd-subj{margin-bottom:12px}
+.sd-subj-top{display:flex;justify-content:space-between;gap:8px;font-size:14px;margin-bottom:5px}
+.sd-subj-meta{color:var(--muted,#718395);font-size:13px;white-space:nowrap}
+.sd-spark{width:100%;height:auto;display:block}
+.sd-spark .sd-line{fill:none;stroke:var(--blue,#238bcb);stroke-width:3;stroke-linejoin:round;stroke-linecap:round}
+.sd-spark .sd-area{fill:var(--sky,#eaf5fb)}
+.sd-spark circle{fill:#fff;stroke:var(--navy,#113f63);stroke-width:2}
+.sd-spark .sd-goal{stroke:var(--gold,#e3b83e);stroke-width:1.5;stroke-dasharray:5 5}
+.sd-spark-legend{display:flex;justify-content:space-between;font-size:11px;color:var(--muted,#718395);margin-top:4px}
+.sd-recent{list-style:none;margin:0;padding:0}
+.sd-recent li{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--line,#e5edf2)}
+.sd-recent li:last-child{border-bottom:0}
+.sd-recent strong{display:block;font-size:14px}
+.sd-recent span{font-size:12px;color:var(--muted,#718395)}
+.sd-recent-score{text-align:left}
+.sd-recent-score b{display:block;font-size:15px}
+.sd-recent-score small{font-size:11px;color:var(--muted,#718395)}
+.sd-empty{color:var(--muted,#718395);font-size:14px;margin:6px 0}
+.sd-tip{margin:14px 0 0;background:var(--sky,#eaf5fb);border-radius:14px;padding:12px 14px;font-size:14px}
+.lv-top{color:#0f7a57}.lv-good{color:#1f6fa8}.lv-mid{color:#9a6b00}.lv-low{color:#b3412f}
+.sd-badge.lv-top{background:#e2f6ee}.sd-badge.lv-good{background:#e4f1fb}.sd-badge.lv-mid{background:#fff3d6}.sd-badge.lv-low{background:#fde8e4}
+@media (max-width:760px){
+  .student-dashboard{padding:16px;border-radius:18px}
+  .sd-kpis{grid-template-columns:repeat(2,1fr)}
+  .sd-cols{grid-template-columns:1fr}
+  .sd-head{flex-wrap:wrap}
+  .sd-next{flex-direction:column;align-items:stretch}
+}
