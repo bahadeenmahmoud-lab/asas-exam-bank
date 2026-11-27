@@ -26,6 +26,24 @@ const validPhone = (phone) => /^7[789][0-9]{7}$/.test(phone);
 const cookieValue = (req, name) => (req.headers.get("cookie") || "").split(";").map((part) => part.trim()).find((part) => part.startsWith(`${name}=`))?.slice(name.length + 1) || "";
 const setCookie = (name, value, maxAge) => `${name}=${value}; Path=/; Max-Age=${maxAge}; HttpOnly; Secure; SameSite=Lax`;
 const clearCookie = (name) => `${name}=; Path=/; Max-Age=0; HttpOnly; Secure; SameSite=Lax`;
+const clientIp = (req) => req.headers.get("x-nf-client-connection-ip")
+  || (req.headers.get("x-forwarded-for") || "").split(",")[0].trim() || "unknown";
+const intEnv = (name, fallback) => {
+  const value = Number.parseInt(env(name), 10);
+  return Number.isInteger(value) && value > 0 ? value : fallback;
+};
+// Counts one attempt in a bucket and reports whether the bucket is over its limit.
+// Buckets are hashed so raw IPs and phone numbers are never stored here.
+async function overLimit(bucket, max, windowSeconds) {
+  const key = hash(`rl:${bucket}`);
+  const rows = await db.sql`SELECT COUNT(*)::int AS count FROM rate_limit_events
+    WHERE bucket = ${key} AND created_at > NOW() - (${windowSeconds} * INTERVAL '1 second')`;
+  if (rows[0].count >= max) return true;
+  await db.sql`INSERT INTO rate_limit_events (bucket) VALUES (${key})`;
+  if (Math.random() < 0.02) await db.sql`DELETE FROM rate_limit_events WHERE created_at < NOW() - INTERVAL '2 days'`;
+  return false;
+}
+const tooMany = (message = "طلبات كثيرة. حاول مرة ثانية بعد شوي.") => fail(message, 429);
 const teacherSlugs = new Set(["asas", "mohammad-bataineh", "maher-abu-bakr"]);
 const teacherFor = (req) => {
   const value = req.headers.get("x-teacher-slug") || "asas";
@@ -105,6 +123,10 @@ export default async (req) => {
       if (teacherSlug === "mohammad-bataineh" && body?.track && body.track !== "الأكاديمي") return fail("نسخة الأحياء مخصصة للمسار الأكاديمي.");
       const sentRecently = await db.sql`SELECT phone FROM verification_codes WHERE teacher_slug = ${teacherSlug} AND phone = ${phone} AND created_at > NOW() - INTERVAL '60 seconds'`;
       if (sentRecently.length) return fail("انتظر دقيقة قبل طلب رمز جديد.", 429);
+      const ip = clientIp(req);
+      if (await overLimit(`otp-ip:${ip}`, intEnv("OTP_MAX_PER_IP_HOUR", 20), 3600)) return tooMany();
+      if (await overLimit(`otp-phone:${phone}`, intEnv("OTP_MAX_PER_PHONE_DAY", 5), 86400)) return tooMany("وصلت للحد اليومي لرسائل التحقق لهذا الرقم. حاول بكرا.");
+      if (await overLimit("otp-global", intEnv("OTP_MAX_GLOBAL_HOUR", 300), 3600)) return fail("الخدمة مضغوطة حالياً. حاول بعد شوي.", 503);
       const smsUrl = env("SMS_WEBHOOK_URL");
       const smsToken = env("SMS_WEBHOOK_TOKEN");
       const localDemo = isLocalOtpDemo();
@@ -117,7 +139,7 @@ export default async (req) => {
         VALUES (${teacherSlug}, ${phone}, ${codeHash}, NOW() + (${OTP_MINUTES} * INTERVAL '1 minute'), 0)
         ON CONFLICT (teacher_slug, phone) DO UPDATE SET code_hash = EXCLUDED.code_hash, expires_at = EXCLUDED.expires_at, attempts = 0, created_at = NOW()`;
       if (localDemo) return json({ ok: true, message: "تم إنشاء رمز الاختبار المحلي." });
-      const sms = await fetch(smsUrl, { method: "POST", headers: { "content-type": "application/json", authorization: `Bearer ${smsToken}` }, body: JSON.stringify({ to: `+962${phone}`, message: `رمز التحقق لبنك أسئلة التمييز: ${code}. صالح لمدة 5 دقائق.` }) });
+      const sms = await fetch(smsUrl, { method: "POST", headers: { "content-type": "application/json", authorization: `Bearer ${smsToken}` }, body: JSON.stringify({ to: `+962${phone}`, message: `رمز التحقق لبنك الأسئلة الأردني: ${code}. صالح لمدة 5 دقائق. لا تعطِ الرمز لأي شخص.` }) });
       if (!sms.ok) return fail("تعذر إرسال رمز التحقق حالياً.", 502);
       return json({ ok: true, message: "تم إرسال رمز التحقق." });
     }
@@ -125,7 +147,9 @@ export default async (req) => {
     if (req.method === "POST" && path === "/api/auth/verify-code") {
       const body = await parseBody(req);
       const phone = phoneOnly(body?.phone);
-      const code = String(body?.code || "");
+      const code = String(body?.code || "").replace(/\D/g, "").slice(0, 6);
+      if (await overLimit(`verify-ip:${clientIp(req)}`, intEnv("VERIFY_MAX_PER_IP_10MIN", 60), 600)) return tooMany();
+      if (!validPhone(phone) || code.length !== 6) return fail("رمز التحقق غير صحيح.", 401);
       const rows = await db.sql`SELECT code_hash FROM verification_codes WHERE teacher_slug = ${teacherSlug} AND phone = ${phone} AND expires_at > NOW() AND attempts < 5`;
       if (!rows[0]) return fail("انتهت صلاحية الرمز أو تجاوزت عدد المحاولات.", 401);
       const expected = hash(`${teacherSlug}:${phone}:${code}:${otpSalt()}`);
@@ -207,10 +231,12 @@ export default async (req) => {
 
     if (req.method === "POST" && path === "/api/admin/login") {
       const body = await parseBody(req);
-      const password = String(body?.password || "");
+      const password = String(body?.password || "").slice(0, 200);
+      if (await overLimit(`admin-ip:${clientIp(req)}`, 5, 900)) return tooMany("محاولات دخول كثيرة. استنى ربع ساعة وجرّب مرة ثانية.");
+      if (await overLimit("admin-global", 30, 3600)) return tooMany("محاولات دخول كثيرة. جرّب لاحقاً.");
       const configured = env("ADMIN_PASSWORD");
       if (!configured) return fail("لم تُضبط كلمة مرور الإدارة بعد.", 503);
-      if (!secureEqual(password, configured)) return fail("كلمة المرور غير صحيحة.", 401);
+      if (!secureEqual(hash(password), hash(configured))) return fail("كلمة المرور غير صحيحة.", 401);
       const token = randomBytes(32).toString("base64url");
       const ttl = 8 * 60 * 60;
       await db.sql`INSERT INTO admin_sessions (token_hash, teacher_slug, expires_at) VALUES (${hash(token)}, ${teacherSlug}, NOW() + (${ttl} * INTERVAL '1 second'))`;

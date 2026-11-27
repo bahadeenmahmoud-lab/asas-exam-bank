@@ -1,0 +1,107 @@
+/* بنك الأسئلة الأردني: واجهة مبسطة (خط أكبر، أزرار أكبر، خطوات أوضح) */
+body.easy { font-size: 17px; }
+/* the hidden attribute must always win over display rules */
+.easy [hidden] { display: none !important; }
+.easy .topbar { height: 72px; }
+.easy .brand strong { font-size: 20px; }
+.easy .brand small { font-size: 12px; }
+.easy .topbar-link { font-size: 15px; min-height: 44px; }
+
+.easy .primary-btn { font-size: 17px; padding: 14px 26px; border-radius: 14px; }
+.easy .big-btn { min-height: 56px; font-size: 18px; }
+.easy .primary-btn:focus-visible, .easy .outline-btn:focus-visible, .easy .subject-chip:focus-visible, .easy .answer-option:focus-visible, .easy .back-link:focus-visible {
+  outline: 3px solid #f0b429; outline-offset: 2px;
+}
+
+/* Hero */
+.easy .easy-hero { display: block; min-height: 0; padding: 48px 7%; text-align: center; }
+.easy .easy-hero .hero-content > p { margin: 0 auto 28px; font-size: 18px; max-width: 620px; }
+.easy .easy-hero h1 { font-size: clamp(30px, 4.6vw, 50px); letter-spacing: -.5px; margin-top: 0; }
+.easy .easy-hero .big-btn { min-width: 220px; }
+
+/* 3 steps */
+.easy-steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin: 20px 0 56px; }
+.easy-step { display: flex; align-items: center; gap: 14px; background: #fff; border: 1px solid var(--line); border-radius: 18px; padding: 18px 20px; }
+.easy-step > span { flex-shrink: 0; width: 46px; height: 46px; border-radius: 50%; display: grid; place-items: center; background: var(--navy); color: #fff; font-size: 20px; font-weight: 800; }
+.easy-step b { display: block; color: var(--navy); font-size: 18px; }
+.easy-step small { display: block; color: var(--muted); font-size: 15px; margin-top: 2px; }
+
+/* Registration */
+.easy .section-heading h2, .easy .dashboard-heading h2 { font-size: 30px; }
+.easy .section-heading p, .easy .dashboard-heading p { font-size: 16px; color: #5f7687; }
+.easy .register-card { max-width: 540px; padding: 30px 32px; }
+.easy .step span { width: 38px; height: 38px; font-size: 16px; }
+.easy .step small { font-size: 14px; }
+.easy .field { font-size: 16px; gap: 8px; }
+.easy .input-wrap, .easy .select-wrap { height: 56px; }
+.easy .input-wrap input { font-size: 18px; padding: 0 16px; }
+.easy .phone-wrap input { padding: 0 64px 0 16px; letter-spacing: 1px; }
+.easy .country-code { font-size: 16px; right: 14px; }
+.easy .select-wrap select { font-size: 17px; color: var(--ink); }
+.easy .field-hint { font-size: 14px; color: #6f8494; }
+.easy .form-error { font-size: 15px; padding: 12px 14px; }
+.easy .verify-form h3 { font-size: 24px; }
+.easy .verify-form p { font-size: 16px; }
+.easy .otp-input { height: 62px; font-size: 28px; }
+.easy .back-link { font-size: 15px; padding: 10px; }
+.easy .demo-note { font-size: 14px; }
+
+/* Dashboard */
+.easy .dashboard-heading { gap: 14px; }
+.easy .outline-btn { font-size: 15px; padding: 12px 16px; }
+.easy .student-results strong { font-size: 16px; }
+.easy .student-results span { font-size: 15px; }
+.subject-chips { display: flex; flex-wrap: wrap; gap: 10px; margin: 0 0 20px; }
+.subject-chip { border: 1px solid #d3e3ec; background: #fff; color: var(--navy); border-radius: 999px; padding: 12px 20px; font-size: 16px; font-weight: 700; min-height: 48px; transition: .15s; }
+.subject-chip:hover { border-color: var(--blue); }
+.subject-chip.active { background: var(--navy); border-color: var(--navy); color: #fff; }
+.easy .exam-card { padding: 22px; }
+.easy .exam-card h3 { font-size: 19px; }
+.easy .exam-card p { font-size: 15px; color: #5f7687; }
+.easy .exam-meta { font-size: 14px; flex-wrap: wrap; gap: 8px 14px; }
+.easy .exam-tag { font-size: 13px; padding: 6px 12px; }
+.easy .exam-card .primary-btn { font-size: 17px; padding: 14px; min-height: 52px; background: var(--navy); color: #fff; }
+.easy .exam-card .primary-btn:hover { background: #0d3551; }
+.easy .empty-state { font-size: 17px; padding: 40px 20px; }
+
+/* Questions */
+.easy .question-card { padding: 32px 34px; }
+.easy .question-count { font-size: 15px; }
+.easy .progress-track { height: 8px; }
+.easy .question-card h2 { font-size: 23px; }
+.easy .answers { gap: 12px; }
+.easy .answer-option { font-size: 18px; padding: 16px; min-height: 60px; color: var(--ink); }
+.easy .answer-option i { width: 30px; height: 30px; font-size: 14px; }
+.easy .answer-feedback { font-size: 16px; padding: 14px 16px; }
+.easy .toast { font-size: 17px; padding: 14px 22px; border-radius: 14px; }
+
+/* Footer */
+.easy footer { font-size: 14px; }
+.footer-link { color: var(--navy); font-weight: 700; text-decoration: none; }
+
+@media (max-width: 760px) {
+  .easy-steps { grid-template-columns: 1fr; margin-bottom: 40px; }
+}
+@media (max-width: 620px) {
+  body.easy { font-size: 16px; }
+  .easy .topbar { padding: 0 14px; gap: 8px; }
+  .easy .brand strong { font-size: 16px; white-space: nowrap; }
+  .easy .brand small { display: none; }
+  .easy .brand-mark { width: 32px; height: 32px; }
+  .easy .profile-btn #profileName { display: none; }
+  .easy .topbar-nav { margin-inline-end: 6px; }
+  .easy .topbar-link { font-size: 13px; min-height: 40px; }
+  .easy .easy-hero { padding: 32px 20px; }
+  .easy .easy-hero .hero-content > p { font-size: 16px; }
+  .easy .easy-hero .big-btn { width: 100%; }
+  .easy .section-heading h2, .easy .dashboard-heading h2 { font-size: 25px; }
+  .easy .section-heading p, .easy .dashboard-heading p { font-size: 15px; }
+  .easy .register-card { padding: 22px 18px; }
+  .easy .outline-btn { font-size: 14px; padding: 10px 12px; }
+  .subject-chip { font-size: 15px; padding: 10px 16px; }
+  .easy .exam-meta { font-size: 13px; }
+  .easy .question-card { padding: 22px 16px; }
+  .easy .question-card h2 { font-size: 20px; }
+  .easy .answer-option { font-size: 17px; }
+  .easy footer > a.footer-link { display: inline; }
+}
