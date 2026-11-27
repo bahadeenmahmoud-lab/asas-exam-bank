@@ -102,8 +102,8 @@ async function upsertExam(payload, teacherSlug = "asas") {
     RETURNING id`;
   await db.sql`DELETE FROM questions WHERE exam_id = ${exam[0].id}`;
   for (const [i, q] of questions.entries()) {
-    await db.sql`INSERT INTO questions (exam_id, position, prompt, options, correct_index, explanation)
-      VALUES (${exam[0].id}, ${i + 1}, ${String(q.prompt).trim()}, ${JSON.stringify(q.options)}::jsonb, ${q.correctIndex}, ${String(q.explanation || "")})`;
+    await db.sql`INSERT INTO questions (exam_id, position, prompt, options, correct_index, explanation, lesson)
+      VALUES (${exam[0].id}, ${i + 1}, ${String(q.prompt).trim()}, ${JSON.stringify(q.options)}::jsonb, ${q.correctIndex}, ${String(q.explanation || "")}, ${String(q.lesson || "").trim()})`;
   }
   return exam[0].id;
 }
@@ -200,6 +200,29 @@ export default async (req) => {
         FROM exam_attempts a JOIN exams e ON e.id = a.exam_id JOIN subjects sub ON sub.id = e.subject_id
         WHERE a.student_id = ${student.id} AND e.teacher_slug = ${teacherSlug} ORDER BY a.completed_at DESC LIMIT 100`;
       return json({ results });
+    }
+
+    // أسئلة أخطأ فيها الطالب: من آخر محاولة له في كل نموذج، مع الإجابة الصحيحة ودرس السؤال
+    if (req.method === "GET" && path === "/api/mistakes") {
+      const student = await studentSession(req);
+      if (!student) return fail("سجّل الدخول أولاً.", 401);
+      const mistakes = await db.sql`WITH latest AS (
+          SELECT DISTINCT ON (a.exam_id) a.id, a.exam_id, a.completed_at
+          FROM exam_attempts a JOIN exams e ON e.id = a.exam_id
+          WHERE a.student_id = ${student.id} AND e.teacher_slug = ${teacherSlug}
+          ORDER BY a.exam_id, a.completed_at DESC
+        )
+        SELECT sub.name AS subject, e.title AS exam, e.model, e.unit,
+          COALESCE(NULLIF(q.lesson, ''), e.lesson) AS lesson, (q.lesson <> '') AS exact_lesson,
+          q.position, q.prompt, q.options, aa.selected_index, q.correct_index, q.explanation, l.completed_at
+        FROM latest l
+        JOIN attempt_answers aa ON aa.attempt_id = l.id AND aa.is_correct = FALSE
+        JOIN questions q ON q.id = aa.question_id
+        JOIN exams e ON e.id = l.exam_id
+        JOIN subjects sub ON sub.id = e.subject_id
+        ORDER BY sub.name, e.model, q.position
+        LIMIT 500`;
+      return json({ mistakes });
     }
 
     if (req.method === "GET" && path.startsWith("/api/exams/")) {
