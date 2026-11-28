@@ -59,6 +59,11 @@ const validGradeForTeacher = (slug, grade) => slug === "mohammad-bataineh"
   : slug === "maher-abu-bakr"
     ? [11, 12].includes(Number(grade))
     : Number(grade) >= 1 && Number(grade) <= 10;
+const FINAL_MODEL = 4;
+const questionsForModel = (model) => Number(model) === FINAL_MODEL ? 30 : 15;
+const examTitle = (model, subject) => Number(model) === FINAL_MODEL
+  ? `الامتحان النهائي — ${subject}`
+  : `الامتحان الجزئي ${model} — ${subject}`;
 const subjectForTeacher = (slug) => slug === "mohammad-bataineh" ? "الأحياء"
   : slug === "maher-abu-bakr" ? "اللغة العربية" : "";
 
@@ -87,8 +92,9 @@ async function upsertExam(payload, teacherSlug = "asas") {
   if (!String(unit || "").trim()) throw new Error("اسم الوحدة مطلوب.");
   if (!String(lesson || "").trim()) throw new Error("اسم الدرس مطلوب.");
   if (!validGradeForTeacher(teacherSlug, grade) || (subjectForTeacher(teacherSlug) && subject.trim() !== subjectForTeacher(teacherSlug))) throw new Error("الصف أو المادة غير متاحان لهذه النسخة.");
-  if (!Number.isInteger(Number(model)) || Number(model) < 1 || Number(model) > 3) throw new Error("رقم النموذج يجب أن يكون من 1 إلى 3.");
-  if (!Array.isArray(questions) || questions.length !== 15) throw new Error("يجب أن يحتوي كل نموذج على 15 سؤالاً.");
+  if (!Number.isInteger(Number(model)) || Number(model) < 1 || Number(model) > FINAL_MODEL) throw new Error("رقم النموذج يجب أن يكون من 1 إلى 4 (4 = الامتحان النهائي).");
+  const needed = questionsForModel(model);
+  if (!Array.isArray(questions) || questions.length !== needed) throw new Error(Number(model) === FINAL_MODEL ? "يجب أن يحتوي الامتحان النهائي على 30 سؤالاً." : "يجب أن يحتوي كل امتحان جزئي على 15 سؤالاً.");
   for (const [i, q] of questions.entries()) {
     if (!String(q.prompt || "").trim() || !Array.isArray(q.options) || q.options.length !== 4 || !Number.isInteger(q.correctIndex) || q.correctIndex < 0 || q.correctIndex > 3) {
       throw new Error(`بيانات السؤال ${i + 1} غير مكتملة.`);
@@ -97,7 +103,7 @@ async function upsertExam(payload, teacherSlug = "asas") {
   const sub = await db.sql`INSERT INTO subjects (teacher_slug, grade, name) VALUES (${teacherSlug}, ${Number(grade)}, ${String(subject).trim()})
     ON CONFLICT (teacher_slug, grade, name) DO UPDATE SET active = TRUE RETURNING id`;
   const exam = await db.sql`INSERT INTO exams (teacher_slug, grade, subject_id, title, semester, unit, lesson, academic_year, source_reference, model, status)
-    VALUES (${teacherSlug}, ${Number(grade)}, ${sub[0].id}, ${`النموذج ${model} — ${subject}`}, ${semester}, ${String(unit)}, ${String(lesson)}, ${String(academicYear)}, ${String(sourceReference)}, ${Number(model)}, 'published')
+    VALUES (${teacherSlug}, ${Number(grade)}, ${sub[0].id}, ${examTitle(model, String(subject).trim())}, ${semester}, ${String(unit)}, ${String(lesson)}, ${String(academicYear)}, ${String(sourceReference)}, ${Number(model)}, 'published')
     ON CONFLICT (teacher_slug, grade, subject_id, semester, academic_year, model) DO UPDATE SET title = EXCLUDED.title, unit = EXCLUDED.unit, lesson = EXCLUDED.lesson, source_reference = EXCLUDED.source_reference, status = 'published'
     RETURNING id`;
   await db.sql`DELETE FROM questions WHERE exam_id = ${exam[0].id}`;
@@ -308,6 +314,43 @@ export default async (req) => {
         catch (error) { return fail(`تعذر استيراد نموذج ${exam?.model || "؟"}: ${error.message}`); }
       }
       return json({ ok: true, imported: imported.length });
+    }
+
+    // يبني الامتحان النهائي (30 سؤالاً) لكل مادة ينقصها: 10 أسئلة عشوائية من كل امتحان جزئي
+    if (req.method === "POST" && path === "/api/admin/build-finals") {
+      const body = await parseBody(req);
+      const grade = Number(body?.grade);
+      const semester = String(body?.semester || "الفصل الأول");
+      if (!Number.isInteger(grade) || !validGradeForTeacher(teacherSlug, grade)) return fail("صف غير صالح.");
+      const groups = await db.sql`SELECT e.subject_id, sub.name AS subject, e.academic_year, MAX(e.source_reference) AS source_reference,
+        ARRAY_AGG(e.id ORDER BY e.model) AS exam_ids, COUNT(*)::int AS partials,
+        EXISTS (SELECT 1 FROM exams f WHERE f.teacher_slug = ${teacherSlug} AND f.grade = ${grade} AND f.subject_id = e.subject_id
+          AND f.semester = ${semester} AND f.academic_year = e.academic_year AND f.model = ${FINAL_MODEL}) AS has_final
+        FROM exams e JOIN subjects sub ON sub.id = e.subject_id
+        WHERE e.teacher_slug = ${teacherSlug} AND e.grade = ${grade} AND e.semester = ${semester} AND e.model BETWEEN 1 AND 3 AND e.status = 'published'
+        GROUP BY e.subject_id, sub.name, e.academic_year`;
+      const built = [], skipped = [];
+      for (const g of groups) {
+        if (g.has_final) { skipped.push(`${g.subject} (موجود)`); continue; }
+        if (g.partials !== 3) { skipped.push(`${g.subject} (ناقص امتحانات جزئية)`); continue; }
+        const picked = [];
+        for (const examId of g.exam_ids) {
+          const rows = await db.sql`SELECT q.prompt, q.options, q.correct_index, q.explanation, COALESCE(NULLIF(q.lesson, ''), e.lesson) AS lesson
+            FROM questions q JOIN exams e ON e.id = q.exam_id WHERE q.exam_id = ${examId} ORDER BY random() LIMIT 10`;
+          picked.push(...rows);
+        }
+        if (picked.length !== 30) { skipped.push(`${g.subject} (أسئلة غير كافية)`); continue; }
+        const exam = await db.sql`INSERT INTO exams (teacher_slug, grade, subject_id, title, semester, unit, lesson, academic_year, source_reference, model, status)
+          VALUES (${teacherSlug}, ${grade}, ${g.subject_id}, ${examTitle(FINAL_MODEL, g.subject)}, ${semester}, 'شامل', 'جميع دروس الفصل', ${g.academic_year}, ${g.source_reference || ""}, ${FINAL_MODEL}, 'published')
+          ON CONFLICT DO NOTHING RETURNING id`;
+        if (!exam[0]) { skipped.push(`${g.subject} (موجود)`); continue; }
+        for (const [i, q] of picked.entries()) {
+          await db.sql`INSERT INTO questions (exam_id, position, prompt, options, correct_index, explanation, lesson)
+            VALUES (${exam[0].id}, ${i + 1}, ${q.prompt}, ${JSON.stringify(q.options)}::jsonb, ${q.correct_index}, ${q.explanation}, ${q.lesson || ""})`;
+        }
+        built.push(g.subject);
+      }
+      return json({ ok: true, built, skipped });
     }
 
     if (req.method === "POST" && path === "/api/admin/logout") {
