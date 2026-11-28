@@ -426,14 +426,25 @@ if (await overLimit(`attempt:${student.id}`, intEnv("ATTEMPT_MAX_PER_STUDENT_HOU
     }
 
     if (req.method === "GET" && path === "/api/admin/students") {
-      const students = await db.sql`SELECT s.full_name, s.phone, s.grade, s.track, s.created_at,
+      const students = await db.sql`SELECT s.id, s.full_name, s.phone, s.grade, s.track, s.created_at,
           COUNT(a.id)::int AS attempts, COALESCE(MAX(a.completed_at), s.created_at) AS last_activity
         FROM students s LEFT JOIN exam_attempts a ON a.student_id = s.id
         WHERE s.teacher_slug = ${teacherSlug} GROUP BY s.id ORDER BY s.created_at DESC LIMIT 5000`;
       return json({ students });
     }
 
-    if (req.method === "POST" && path === "/api/admin/import-exam") {
+    // حذف طالب ونتائجه نهائياً (ومعه الحساب إذا ما ضل عليه طلاب)
+if (req.method === "POST" && path === "/api/admin/delete-student") {
+const body = await parseBody(req);
+const id = Number(body?.studentId);
+if (!Number.isInteger(id)) return fail("طالب غير صالح.");
+const removed = await db.sql`DELETE FROM students WHERE id = ${id} AND teacher_slug = ${teacherSlug} RETURNING account_id`;
+if (!removed[0]) return fail("الطالب غير موجود.", 404);
+if (removed[0].account_id) await db.sql`DELETE FROM accounts a WHERE a.id = ${removed[0].account_id} AND NOT EXISTS (SELECT 1 FROM students s WHERE s.account_id = a.id)`;
+return json({ ok: true });
+}
+
+if (req.method === "POST" && path === "/api/admin/import-exam") {
       const body = await parseBody(req);
       try { const examId = await upsertExam(body, teacherSlug); return json({ ok: true, examId }); }
       catch (error) { return fail(error.message); }
