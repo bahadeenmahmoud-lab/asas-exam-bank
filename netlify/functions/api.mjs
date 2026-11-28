@@ -58,7 +58,7 @@ const validGradeForTeacher = (slug, grade) => slug === "mohammad-bataineh"
   ? Number(grade) === 12
   : slug === "maher-abu-bakr"
     ? [11, 12].includes(Number(grade))
-    : Number(grade) >= 1 && Number(grade) <= 12;
+    : Number(grade) >= 1 && Number(grade) <= 10;
 const subjectForTeacher = (slug) => slug === "mohammad-bataineh" ? "الأحياء"
   : slug === "maher-abu-bakr" ? "اللغة العربية" : "";
 
@@ -166,7 +166,7 @@ export default async (req) => {
       const grade = Number(body?.grade || prior[0]?.grade);
       if (!name || !Number.isInteger(grade) || !validGradeForTeacher(teacherSlug, grade)) return fail("بيانات الطالب غير مكتملة.");
       if (teacherSlug === "mohammad-bataineh" && body?.track && body.track !== "الأكاديمي") return fail("نسخة الأحياء مخصصة للمسار الأكاديمي.");
-      const track = teacherSlug === "mohammad-bataineh" ? "الأكاديمي" : String(body?.track || "");
+      const track = teacherSlug === "mohammad-bataineh" ? "الأكاديمي" : "";
       const student = await db.sql`INSERT INTO students (teacher_slug, full_name, phone, grade, track) VALUES (${teacherSlug}, ${name}, ${phone}, ${grade}, ${track})
         ON CONFLICT (teacher_slug, phone) DO UPDATE SET full_name = EXCLUDED.full_name, grade = EXCLUDED.grade, track = EXCLUDED.track, last_seen_at = NOW()
         RETURNING id, full_name, phone, grade, track`;
