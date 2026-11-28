@@ -1,5 +1,5 @@
 import { getDatabase } from "@netlify/database";
-import { createHash, randomBytes, randomInt, timingSafeEqual } from "node:crypto";
+import { createHash, randomBytes, randomInt, scryptSync, timingSafeEqual } from "node:crypto";
 
 const db = getDatabase();
 const SESSION_DAYS = 30;
@@ -71,14 +71,41 @@ const examTitle = (model, subject) => Number(model) === FINAL_MODEL
 const subjectForTeacher = (slug) => slug === "mohammad-bataineh" ? "الأحياء"
   : slug === "maher-abu-bakr" ? "اللغة العربية" : "";
 
+// ===== الحسابات وكلمات السر =====
+// حساب واحد لكل رقم هاتف، وعليه طالب أو أكثر (إخوة). كلمة السر تُحفظ مشفّرة بـ scrypt.
+const PASSWORD_MIN = 6;
+const MAX_STUDENTS_PER_ACCOUNT = 6;
+const validPassword = (p) => typeof p === "string" && p.length >= PASSWORD_MIN && p.length <= 100;
+const hashPassword = (password) => {
+const salt = randomBytes(16).toString("hex");
+return `scrypt$${salt}$${scryptSync(password, salt, 64).toString("hex")}`;
+};
+const checkPassword = (password, stored) => {
+const [kind, salt, digest] = String(stored || "").split("$");
+if (kind !== "scrypt" || !salt || !digest) return false;
+return secureEqual(scryptSync(String(password), salt, 64).toString("hex"), digest);
+};
+const publicStudent = (s) => ({ id: Number(s.id), full_name: s.full_name, grade: Number(s.grade), track: s.track || "" });
+const accountStudents = (accountId) => db.sql`SELECT id, full_name, grade, track FROM students WHERE account_id = ${accountId} ORDER BY created_at, id`;
+const findAccount = async (teacherSlug, phone) => (await db.sql`SELECT id, password_hash FROM accounts WHERE teacher_slug = ${teacherSlug} AND phone = ${phone}`)[0] || null;
+async function startSession(accountId, studentId) {
+const token = randomBytes(32).toString("base64url");
+const ttl = SESSION_DAYS * 24 * 60 * 60;
+await db.sql`INSERT INTO student_sessions (token_hash, student_id, account_id, expires_at) VALUES (${hash(token)}, ${studentId}, ${accountId}, NOW() + (${ttl} * INTERVAL '1 second'))`;
+return setCookie("asas_student", token, ttl);
+}
+const PW_MSG = "كلمة السر لازم تكون 6 أحرف أو أرقام على الأقل.";
+const TAKEN_MSG = "هذا الرقم مسجّل من قبل. ادخل برقمك وكلمة السر، أو اختر «نسيت كلمة السر».";
+const NO_ACCOUNT_MSG = "ما في حساب على هذا الرقم. سجّل حساب جديد.";
+
 async function studentSession(req) {
-  const token = cookieValue(req, "asas_student");
-  if (!token) return null;
-  const rows = await db.sql`SELECT s.id, s.full_name, s.phone, s.grade, s.track, s.teacher_slug
-    FROM student_sessions ss JOIN students s ON s.id = ss.student_id
-    WHERE ss.token_hash = ${hash(token)} AND ss.expires_at > NOW()`;
-  if (rows[0]?.teacher_slug !== teacherFor(req)) return null;
-  return rows[0] || null;
+const token = cookieValue(req, "asas_student");
+if (!token) return null;
+const rows = await db.sql`SELECT s.id, s.full_name, s.phone, s.grade, s.track, s.teacher_slug, COALESCE(ss.account_id, s.account_id) AS account_id
+FROM student_sessions ss JOIN students s ON s.id = ss.student_id
+WHERE ss.token_hash = ${hash(token)} AND ss.expires_at > NOW()`;
+if (rows[0]?.teacher_slug !== teacherFor(req)) return null;
+return rows[0] || null;
 }
 
 async function requireAdmin(req) {
@@ -140,66 +167,153 @@ if (!originHost || !hosts.includes(originHost)) return fail("طلب مرفوض."
     }
 
     if (req.method === "POST" && path === "/api/auth/request-code") {
-      const body = await parseBody(req);
-      const phone = phoneOnly(body?.phone);
-      const grade = Number(body?.grade);
-      const name = cleanName(body?.name);
-      if (!name || !validPhone(phone) || !Number.isInteger(grade) || !validGradeForTeacher(teacherSlug, grade)) return fail("أدخل الاسم ورقم هاتف أردني وصفاً متاحاً بشكل صحيح.");
-      if (teacherSlug === "mohammad-bataineh" && body?.track && body.track !== "الأكاديمي") return fail("نسخة الأحياء مخصصة للمسار الأكاديمي.");
-      const sentRecently = await db.sql`SELECT phone FROM verification_codes WHERE teacher_slug = ${teacherSlug} AND phone = ${phone} AND created_at > NOW() - INTERVAL '60 seconds'`;
-      if (sentRecently.length) return fail("انتظر دقيقة قبل طلب رمز جديد.", 429);
-      const ip = clientIp(req);
-      if (await overLimit(`otp-ip:${ip}`, intEnv("OTP_MAX_PER_IP_HOUR", 20), 3600)) return tooMany();
-      if (await overLimit(`otp-phone:${phone}`, intEnv("OTP_MAX_PER_PHONE_DAY", 5), 86400)) return tooMany("وصلت للحد اليومي لرسائل التحقق لهذا الرقم. حاول بكرا.");
-      if (await overLimit("otp-global", intEnv("OTP_MAX_GLOBAL_HOUR", 300), 3600)) return fail("الخدمة مضغوطة حالياً. حاول بعد شوي.", 503);
-      const smsUrl = env("SMS_WEBHOOK_URL");
-      const smsToken = env("SMS_WEBHOOK_TOKEN");
-      const localDemo = otpDemoMode();
-      const code = localDemo ? DEMO_OTP : String(randomInt(100000, 1000000));
-      const salt = otpSalt();
-      if (!salt) return fail("إعداد التحقق غير مكتمل على الخادم.", 503);
-      const codeHash = hash(`${teacherSlug}:${phone}:${code}:${salt}`);
-      await db.sql`INSERT INTO verification_codes (teacher_slug, phone, code_hash, expires_at, attempts)
-        VALUES (${teacherSlug}, ${phone}, ${codeHash}, NOW() + (${OTP_MINUTES} * INTERVAL '1 minute'), 0)
-        ON CONFLICT (teacher_slug, phone) DO UPDATE SET code_hash = EXCLUDED.code_hash, expires_at = EXCLUDED.expires_at, attempts = 0, created_at = NOW()`;
-      if (localDemo) return json({ ok: true, demo: true, message: `رمز التفعيل المؤقت: ${DEMO_OTP}` });
-      const sms = await fetch(smsUrl, { method: "POST", headers: { "content-type": "application/json", authorization: `Bearer ${smsToken}` }, body: JSON.stringify({ to: `+962${phone}`, message: `رمز التحقق لبنك الأسئلة الأردني: ${code}. صالح لمدة 5 دقائق. لا تعطِ الرمز لأي شخص.` }) });
-      if (!sms.ok) return fail("تعذر إرسال رمز التحقق حالياً.", 502);
-      return json({ ok: true, message: "تم إرسال رمز التحقق." });
-    }
+const body = await parseBody(req);
+const phone = phoneOnly(body?.phone);
+const grade = Number(body?.grade);
+const name = cleanName(body?.name);
+// legacy: نسخ المعلمين القديمة التي لا ترسل كلمة سر (الموقع الرئيسي يتطلب كلمة سر دائماً)
+const legacy = body?.password === undefined && teacherSlug !== "asas";
+const purpose = body?.purpose === "reset" ? "reset" : "register";
+if (!validPhone(phone)) return fail("أدخل رقم هاتف أردني صحيح.");
+if (purpose === "reset" && !legacy) {
+if (!name) return fail("اكتب اسم أحد الطلاب المسجّلين على هذا الرقم.");
+} else if (!name || !Number.isInteger(grade) || !validGradeForTeacher(teacherSlug, grade)) return fail("أدخل الاسم ورقم هاتف أردني وصفاً متاحاً بشكل صحيح.");
+if (teacherSlug === "mohammad-bataineh" && body?.track && body.track !== "الأكاديمي") return fail("نسخة الأحياء مخصصة للمسار الأكاديمي.");
+if (!legacy) {
+if (!validPassword(body?.password)) return fail(PW_MSG);
+const acct = await findAccount(teacherSlug, phone);
+if (purpose === "register" && acct?.password_hash) return fail(TAKEN_MSG, 409);
+if (purpose === "reset" && !acct) return fail(NO_ACCOUNT_MSG, 404);
+}
+const sentRecently = await db.sql`SELECT phone FROM verification_codes WHERE teacher_slug = ${teacherSlug} AND phone = ${phone} AND created_at > NOW() - INTERVAL '60 seconds'`;
+if (sentRecently.length) return fail("انتظر دقيقة قبل طلب رمز جديد.", 429);
+const ip = clientIp(req);
+if (await overLimit(`otp-ip:${ip}`, intEnv("OTP_MAX_PER_IP_HOUR", 20), 3600)) return tooMany();
+if (await overLimit(`otp-phone:${phone}`, intEnv("OTP_MAX_PER_PHONE_DAY", 5), 86400)) return tooMany("وصلت للحد اليومي لرسائل التحقق لهذا الرقم. حاول بكرا.");
+if (await overLimit("otp-global", intEnv("OTP_MAX_GLOBAL_HOUR", 300), 3600)) return fail("الخدمة مضغوطة حالياً. حاول بعد شوي.", 503);
+const smsUrl = env("SMS_WEBHOOK_URL");
+const smsToken = env("SMS_WEBHOOK_TOKEN");
+const localDemo = otpDemoMode();
+const code = localDemo ? DEMO_OTP : String(randomInt(100000, 1000000));
+const salt = otpSalt();
+if (!salt) return fail("إعداد التحقق غير مكتمل على الخادم.", 503);
+const codeHash = hash(`${teacherSlug}:${phone}:${code}:${salt}`);
+await db.sql`INSERT INTO verification_codes (teacher_slug, phone, code_hash, expires_at, attempts)
+VALUES (${teacherSlug}, ${phone}, ${codeHash}, NOW() + (${OTP_MINUTES} * INTERVAL '1 minute'), 0)
+ON CONFLICT (teacher_slug, phone) DO UPDATE SET code_hash = EXCLUDED.code_hash, expires_at = EXCLUDED.expires_at, attempts = 0, created_at = NOW()`;
+if (localDemo) return json({ ok: true, demo: true, message: `رمز التفعيل المؤقت: ${DEMO_OTP}` });
+const sms = await fetch(smsUrl, { method: "POST", headers: { "content-type": "application/json", authorization: `Bearer ${smsToken}` }, body: JSON.stringify({ to: `+962${phone}`, message: `رمز التحقق لبنك الأسئلة الأردني: ${code}. صالح لمدة 5 دقائق. لا تعطِ الرمز لأي شخص.` }) });
+if (!sms.ok) return fail("تعذر إرسال رمز التحقق حالياً.", 502);
+return json({ ok: true, message: "تم إرسال رمز التحقق." });
+}
 
-    if (req.method === "POST" && path === "/api/auth/verify-code") {
-      const body = await parseBody(req);
-      const phone = phoneOnly(body?.phone);
-      const code = String(body?.code || "").replace(/\D/g, "").slice(0, 6);
-      if (await overLimit(`verify-ip:${clientIp(req)}`, intEnv("VERIFY_MAX_PER_IP_10MIN", 60), 600)) return tooMany();
-      if (!validPhone(phone) || code.length !== 6) return fail("رمز التحقق غير صحيح.", 401);
-      const rows = await db.sql`SELECT code_hash FROM verification_codes WHERE teacher_slug = ${teacherSlug} AND phone = ${phone} AND expires_at > NOW() AND attempts < 5`;
-      if (!rows[0]) return fail("انتهت صلاحية الرمز أو تجاوزت عدد المحاولات.", 401);
-      const expected = hash(`${teacherSlug}:${phone}:${code}:${otpSalt()}`);
-      if (!secureEqual(rows[0].code_hash, expected)) {
-        await db.sql`UPDATE verification_codes SET attempts = attempts + 1 WHERE teacher_slug = ${teacherSlug} AND phone = ${phone}`;
-        return fail("رمز التحقق غير صحيح.", 401);
-      }
-      const prior = await db.sql`SELECT full_name, grade, track FROM students WHERE teacher_slug = ${teacherSlug} AND phone = ${phone}`;
-      const name = cleanName(body?.name || prior[0]?.full_name);
-// ما دام رمز التحقق تجريبياً (بدون SMS): لا يُسمح بالدخول لحساب موجود إلا بنفس الاسم المسجّل
-if (otpDemoMode() && prior[0] && nameKey(body?.name) !== nameKey(prior[0].full_name)) return fail("هذا الرقم مسجّل باسم آخر. اكتب اسمك كما سجّلته أول مرة.", 403);
-      const grade = Number(body?.grade || prior[0]?.grade);
-      if (!name || !Number.isInteger(grade) || !validGradeForTeacher(teacherSlug, grade)) return fail("بيانات الطالب غير مكتملة.");
-      if (teacherSlug === "mohammad-bataineh" && body?.track && body.track !== "الأكاديمي") return fail("نسخة الأحياء مخصصة للمسار الأكاديمي.");
-      const track = teacherSlug === "mohammad-bataineh" ? "الأكاديمي" : "";
-      const student = await db.sql`INSERT INTO students (teacher_slug, full_name, phone, grade, track) VALUES (${teacherSlug}, ${name}, ${phone}, ${grade}, ${track})
-        ON CONFLICT (teacher_slug, phone) DO UPDATE SET full_name = EXCLUDED.full_name, grade = EXCLUDED.grade, track = EXCLUDED.track, last_seen_at = NOW()
-        RETURNING id, full_name, phone, grade, track`;
-      await db.sql`DELETE FROM verification_codes WHERE teacher_slug = ${teacherSlug} AND phone = ${phone}`;
-      const token = randomBytes(32).toString("base64url");
-      const ttl = SESSION_DAYS * 24 * 60 * 60;
-      await db.sql`INSERT INTO student_sessions (token_hash, student_id, expires_at) VALUES (${hash(token)}, ${student[0].id}, NOW() + (${ttl} * INTERVAL '1 second'))`;
-      return json({ ok: true, student: student[0] }, 200, { "set-cookie": setCookie("asas_student", token, ttl) });
-    }
+if (req.method === "POST" && path === "/api/auth/verify-code") {
+const body = await parseBody(req);
+const phone = phoneOnly(body?.phone);
+const code = String(body?.code || "").replace(/\D/g, "").slice(0, 6);
+if (await overLimit(`verify-ip:${clientIp(req)}`, intEnv("VERIFY_MAX_PER_IP_10MIN", 60), 600)) return tooMany();
+if (!validPhone(phone) || code.length !== 6) return fail("رمز التحقق غير صحيح.", 401);
+const rows = await db.sql`SELECT code_hash FROM verification_codes WHERE teacher_slug = ${teacherSlug} AND phone = ${phone} AND expires_at > NOW() AND attempts < 5`;
+if (!rows[0]) return fail("انتهت صلاحية الرمز أو تجاوزت عدد المحاولات.", 401);
+const expected = hash(`${teacherSlug}:${phone}:${code}:${otpSalt()}`);
+if (!secureEqual(rows[0].code_hash, expected)) {
+await db.sql`UPDATE verification_codes SET attempts = attempts + 1 WHERE teacher_slug = ${teacherSlug} AND phone = ${phone}`;
+return fail("رمز التحقق غير صحيح.", 401);
+}
+const legacy = body?.password === undefined && teacherSlug !== "asas";
+const purpose = !legacy && body?.purpose === "reset" ? "reset" : "register";
+const password = body?.password;
+if (!legacy && !validPassword(password)) return fail(PW_MSG);
+const name = cleanName(body?.name);
+if (!name) return fail("اكتب اسم الطالب.");
+let acct = await findAccount(teacherSlug, phone);
+if (!legacy && purpose === "register" && acct?.password_hash) return fail(TAKEN_MSG, 409);
+if (purpose === "reset" && !acct) return fail(NO_ACCOUNT_MSG, 404);
+const existing = acct ? await accountStudents(acct.id) : [];
+let student = existing.find((s) => nameKey(s.full_name) === nameKey(name)) || null;
+// حماية من سرقة الحساب: لاستعادة كلمة السر، أو ما دام رمز التحقق تجريبياً، يجب أن يطابق الاسم طالباً مسجّلاً على الرقم
+if (existing.length && !student && (purpose === "reset" || otpDemoMode())) return fail("الاسم لا يطابق أي طالب مسجّل على هذا الرقم. اكتب الاسم كما سجّلته أول مرة، وبعد الدخول بتقدر تضيف إخوته.", 403);
+const track = teacherSlug === "mohammad-bataineh" ? "الأكاديمي" : "";
+const grade = Number(body?.grade);
+if (!student) {
+if (!Number.isInteger(grade) || !validGradeForTeacher(teacherSlug, grade)) return fail("بيانات الطالب غير مكتملة.");
+if (existing.length >= MAX_STUDENTS_PER_ACCOUNT) return fail("وصلت للحد الأعلى للطلاب على هذا الرقم.");
+if (!acct) acct = (await db.sql`INSERT INTO accounts (teacher_slug, phone) VALUES (${teacherSlug}, ${phone})
+ON CONFLICT (teacher_slug, phone) DO UPDATE SET phone = EXCLUDED.phone RETURNING id, password_hash`)[0];
+student = (await db.sql`INSERT INTO students (teacher_slug, full_name, phone, grade, track, account_id)
+VALUES (${teacherSlug}, ${name}, ${phone}, ${grade}, ${track}, ${acct.id}) RETURNING id, full_name, grade, track`)[0];
+} else if (purpose === "register" && Number.isInteger(grade) && validGradeForTeacher(teacherSlug, grade)) {
+student = (await db.sql`UPDATE students SET grade = ${grade}, last_seen_at = NOW() WHERE id = ${student.id} RETURNING id, full_name, grade, track`)[0];
+}
+await db.sql`DELETE FROM verification_codes WHERE teacher_slug = ${teacherSlug} AND phone = ${phone}`;
+if (!legacy) {
+await db.sql`UPDATE accounts SET password_hash = ${hashPassword(password)} WHERE id = ${acct.id}`;
+// بعد تغيير كلمة السر نُخرج كل الأجهزة الأخرى
+if (purpose === "reset") await db.sql`DELETE FROM student_sessions WHERE account_id = ${acct.id}`;
+}
+const cookie = await startSession(acct.id, student.id);
+const students = await accountStudents(acct.id);
+return json({ ok: true, student: publicStudent(student), students: students.map(publicStudent) }, 200, { "set-cookie": cookie });
+}
 
-    if (req.method === "POST" && path === "/api/auth/logout") {
+// الدخول برقم الهاتف وكلمة السر
+if (req.method === "POST" && path === "/api/auth/login") {
+const body = await parseBody(req);
+const phone = phoneOnly(body?.phone);
+const password = String(body?.password || "").slice(0, 100);
+if (await overLimit(`login-ip:${clientIp(req)}`, intEnv("LOGIN_MAX_PER_IP_15MIN", 20), 900)) return tooMany("محاولات دخول كثيرة. استنى ربع ساعة وجرّب مرة ثانية.");
+if (!validPhone(phone) || !password) return fail("أدخل رقم الموبايل وكلمة السر.", 401);
+if (await overLimit(`login-phone:${phone}`, intEnv("LOGIN_MAX_PER_PHONE_15MIN", 8), 900)) return tooMany("محاولات دخول كثيرة على هذا الرقم. استنى ربع ساعة أو اختر «نسيت كلمة السر».");
+const acct = await findAccount(teacherSlug, phone);
+if (acct && !acct.password_hash) return fail("حسابك مسجّل قبل إضافة كلمات السر. اختر «نسيت كلمة السر» وعيّن كلمة سر جديدة.", 403);
+if (!acct || !checkPassword(password, acct.password_hash)) return fail("رقم الموبايل أو كلمة السر غير صحيحة.", 401);
+const students = await accountStudents(acct.id);
+if (!students.length) return fail("ما في طلاب على هذا الحساب.", 404);
+const cookie = await startSession(acct.id, students[0].id);
+return json({ ok: true, student: publicStudent(students[0]), students: students.map(publicStudent) }, 200, { "set-cookie": cookie });
+}
+
+// طلاب الحساب (الإخوة على نفس الرقم)
+if (req.method === "GET" && path === "/api/auth/students") {
+const student = await studentSession(req);
+if (!student) return fail("سجّل الدخول أولاً.", 401);
+const students = student.account_id ? await accountStudents(student.account_id) : [student];
+return json({ current: Number(student.id), students: students.map(publicStudent) });
+}
+
+// اختيار الطالب الذي سيدرس الآن
+if (req.method === "POST" && path === "/api/auth/select") {
+const student = await studentSession(req);
+if (!student || !student.account_id) return fail("سجّل الدخول أولاً.", 401);
+const body = await parseBody(req);
+const id = Number(body?.studentId);
+const rows = Number.isInteger(id) ? await db.sql`SELECT id, full_name, grade, track FROM students
+WHERE id = ${id} AND account_id = ${student.account_id} AND teacher_slug = ${teacherSlug}` : [];
+if (!rows[0]) return fail("الطالب غير موجود على حسابك.", 404);
+await db.sql`UPDATE student_sessions SET student_id = ${id} WHERE token_hash = ${hash(cookieValue(req, "asas_student"))}`;
+return json({ ok: true, student: publicStudent(rows[0]) });
+}
+
+// إضافة أخ/أخت على نفس الحساب
+if (req.method === "POST" && path === "/api/auth/add-student") {
+const student = await studentSession(req);
+if (!student || !student.account_id) return fail("سجّل الدخول أولاً.", 401);
+if (await overLimit(`add-student:${student.account_id}`, 10, 86400)) return tooMany();
+const body = await parseBody(req);
+const name = cleanName(body?.name);
+const grade = Number(body?.grade);
+if (!name || name.length < 2 || !Number.isInteger(grade) || !validGradeForTeacher(teacherSlug, grade)) return fail("اكتب اسم الطالب واختار صفه.");
+const existing = await accountStudents(student.account_id);
+if (existing.length >= MAX_STUDENTS_PER_ACCOUNT) return fail(`الحد الأعلى ${MAX_STUDENTS_PER_ACCOUNT} طلاب على نفس الرقم.`);
+if (existing.some((s) => nameKey(s.full_name) === nameKey(name))) return fail("هذا الطالب مضاف على حسابك من قبل.", 409);
+const track = teacherSlug === "mohammad-bataineh" ? "الأكاديمي" : "";
+const added = (await db.sql`INSERT INTO students (teacher_slug, full_name, phone, grade, track, account_id)
+VALUES (${teacherSlug}, ${name}, ${student.phone}, ${grade}, ${track}, ${student.account_id}) RETURNING id, full_name, grade, track`)[0];
+await db.sql`UPDATE student_sessions SET student_id = ${added.id} WHERE token_hash = ${hash(cookieValue(req, "asas_student"))}`;
+return json({ ok: true, student: publicStudent(added), students: [...existing, added].map(publicStudent) });
+}
+
+if (req.method === "POST" && path === "/api/auth/logout") {
       const token = cookieValue(req, "asas_student");
       if (token) await db.sql`DELETE FROM student_sessions WHERE token_hash = ${hash(token)}`;
       return json({ ok: true }, 200, { "set-cookie": clearCookie("asas_student") });
