@@ -41,7 +41,7 @@ function showAdmin(data) {
 
 async function refreshAdmin() {
   const [overview, students] = await Promise.all([api('/api/admin/overview'), api('/api/admin/students')]);
-  bankStudents = students.students || []; showAdmin(overview);
+  bankStudents = students.students || []; showAdmin(overview); renderStudents();
 }
 
 const gradeSelect = $('examGrade');
@@ -135,3 +135,35 @@ $('templateExcel').addEventListener('click', () => {
 $('studentsCsv').addEventListener('click', () => excelDownload('بيانات-الطلاب.xlsx', 'الطلاب', ['الاسم','الهاتف','الصف','المسار','عدد المحاولات','تاريخ التسجيل','آخر نشاط'], bankStudents.map((s) => [s.full_name, s.phone, s.grade === 11 ? 'الأول الثانوي' : s.grade === 12 ? 'التوجيهي' : s.grade, s.track, s.attempts, s.created_at, s.last_activity])));
 $('resultsCsv').addEventListener('click', () => excelDownload('نتائج-الطلاب.xlsx', 'النتائج', ['الطالب','الهاتف','الصف','المادة','الفصل','الوحدة','الدرس','الامتحان','العلامة','العلامة الكاملة','التاريخ'], bankResults.map((r) => [r.full_name, r.phone, r.grade === 11 ? 'الأول الثانوي' : r.grade === 12 ? 'التوجيهي' : r.grade, r.subject, r.semester, r.unit, r.lesson, r.exam, r.score, r.total, r.completed_at])));
 $('logoutBtn').addEventListener('click', async () => { await api('/api/admin/logout', { method: 'POST', body: '{}' }).catch(() => {}); location.reload(); });
+
+// ===== جدول الطلاب وحذف طالب =====
+const gradeName = (g) => g === 11 ? 'الأول الثانوي' : g === 12 ? 'التوجيهي' : `الصف ${g}`;
+function renderStudents() {
+const tbody = $('studentsBody'); if (!tbody) return; tbody.replaceChildren();
+const q = ($('studentSearch')?.value || '').trim();
+const digits = q.replace(/\D/g, '').replace(/^0/, '');
+const list = bankStudents.filter((s) => !q || String(s.full_name).includes(q) || (digits && String(s.phone).includes(digits)));
+for (const s of list.slice(0, 300)) {
+const tr = document.createElement('tr');
+[s.full_name, s.phone, gradeName(Number(s.grade)), s.attempts, new Date(s.created_at).toLocaleDateString('ar-JO')].forEach((v) => { const td = document.createElement('td'); td.textContent = v; tr.append(td); });
+const td = document.createElement('td'); const b = document.createElement('button'); b.type = 'button'; b.textContent = 'حذف';
+b.style.cssText = 'border:1px solid #e8b4ad;background:#fff5f3;color:#a8463b;border-radius:9px;padding:6px 12px;font:inherit;font-weight:700;cursor:pointer;white-space:nowrap';
+b.addEventListener('click', () => deleteStudent(s, b)); td.append(b); tr.append(td); tbody.append(tr);
+}
+if (!list.length) { const tr = document.createElement('tr'); const td = document.createElement('td'); td.colSpan = 6; td.textContent = 'لا يوجد طلاب مطابقون.'; tr.append(td); tbody.append(tr); }
+}
+async function deleteStudent(s, btn) {
+const status = $('studentsStatus');
+if (btn.dataset.confirm !== '1') {
+btn.dataset.confirm = '1'; btn.textContent = 'متأكد؟ اضغط مرة ثانية'; btn.style.background = '#a8463b'; btn.style.color = '#fff';
+setTimeout(() => { if (btn.isConnected && !btn.disabled) { btn.dataset.confirm = ''; btn.textContent = 'حذف'; btn.style.background = '#fff5f3'; btn.style.color = '#a8463b'; } }, 5000);
+return;
+}
+btn.disabled = true; status.className = 'status-line';
+try {
+await api('/api/admin/delete-student', { method: 'POST', body: JSON.stringify({ studentId: s.id }) });
+status.textContent = `تم حذف الطالب «${s.full_name}» ونتائجه.`;
+await refreshAdmin();
+} catch (error) { btn.disabled = false; status.textContent = error.message; status.classList.add('error'); }
+}
+$('studentSearch')?.addEventListener('input', renderStudents);
