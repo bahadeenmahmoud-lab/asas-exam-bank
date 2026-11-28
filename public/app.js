@@ -1,4 +1,4 @@
-const appConfig = window.ASAS_CONFIG || { slug: 'asas', grades: Array.from({length:12}, (_, i) => ({value:String(i+1), label:'الصف '+(i+1)})) };
+const appConfig = window.ASAS_CONFIG || { slug: 'asas', grades: Array.from({length:10}, (_, i) => ({value:String(i+1), label:'الصف '+(i+1)})) };
 const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const grades = appConfig.grades;
 const profileStorageKey = `asas-exam-profile-${appConfig.slug}`;
