@@ -50,6 +50,7 @@
           <label class="field full"><span>رقم الموبايل</span><div class="input-wrap phone-wrap"><span class="country-code">+962</span><input name="phone" type="tel" inputmode="numeric" autocomplete="tel-national" placeholder="7XXXXXXXX" pattern="7[0-9]{8}" maxlength="9" required></div><small class="field-hint">اكتب الرقم بدون الصفر بالأول، مثال: 791234567</small></label>
           <label class="field full"><span>الصف</span><div class="select-wrap"><select name="grade" id="gradeSelect" required><option value="">اختار صفك</option></select><span>⌄</span></div></label>
           <label class="field full" id="trackField" hidden><span>المسار</span><div class="select-wrap"><select name="track" id="trackSelect"><option value="">اختار المسار</option><option>الأكاديمي</option><option>المهني</option></select><span>⌄</span></div></label>
+          <label class="full consent-field" style="display:flex;gap:.5rem;align-items:flex-start;font-size:.95rem"><input type="checkbox" name="consent" required style="width:20px;height:20px;margin-top:3px;flex:none"><span>أوافق (وبموافقة وليّ أمري) على <a href="/terms" target="_blank">شروط الاستخدام وسياسة الخصوصية</a>، بما فيها التواصل معي لأغراض تسويقية.</span></label>
           <div class="form-error full" id="formError" role="alert" hidden></div>
           <button class="primary-btn full big-btn" type="submit">أرسل رمز التأكيد</button>
           <div class="demo-note full" hidden></div>
@@ -85,7 +86,7 @@
     </section>
   </main>
 
-  <footer><a class="brand footer-brand" href="/"><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i><b>ب</b></span><span><strong>بنك الأسئلة الأردني</strong><small>تدرّب كل يوم</small></span></a><a class="footer-link" href="tips.html">نصائح دراسية</a></footer>
+  <footer><a class="brand footer-brand" href="/"><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i><b>ب</b></span><span><strong>بنك الأسئلة الأردني</strong><small>تدرّب كل يوم</small></span></a><a class="footer-link" href="tips.html">نصائح دراسية</a><a class="footer-link" href="/terms">الشروط والخصوصية</a></footer>
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
   <script src="teacher-config.js"></script>
   <script src="app.js"></script>
