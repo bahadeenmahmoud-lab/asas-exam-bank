@@ -46,21 +46,42 @@ async function refreshAdmin() {
 
 const gradeSelect = $('examGrade');
 const textbookPages = { 1: 68, 2: 69, 3: 70, 4: 71, 5: 72, 6: 73, 7: 74, 8: 75, 9: 76, 10: 77 };
-const gradeValues = teacherSlug === 'mohammad-bataineh' ? [12] : teacherSlug === 'maher-abu-bakr' ? [11, 12] : Array.from({ length: 12 }, (_, i) => i + 1);
+const gradeValues = teacherSlug === 'mohammad-bataineh' ? [12] : teacherSlug === 'maher-abu-bakr' ? [11, 12] : Array.from({ length: 10 }, (_, i) => i + 1);
 for (const grade of gradeValues) { const option = document.createElement('option'); option.value = String(grade); option.textContent = grade === 11 ? 'الأول الثانوي' : grade === 12 ? 'التوجيهي' : `الصف ${grade}`; gradeSelect.append(option); }
 gradeSelect.addEventListener('change', () => { const page = textbookPages[gradeSelect.value]; $('sourceReference').value = page ? `https://nccd.gov.jo/ar/pages/TextBooksGrade/${page}` : ''; });
-for (let number = 1; number <= 15; number++) {
+for (let number = 1; number <= 30; number++) {
   const fieldset = document.createElement('fieldset');
+  if (number > 15) fieldset.dataset.finalOnly = 'true';
   fieldset.innerHTML = `<legend>السؤال ${number}</legend><label>نص السؤال<textarea class="q-prompt" required></textarea></label><label>الخيارات الأربعة — كل خيار في سطر<textarea class="q-options" required placeholder="الخيار الأول\nالخيار الثاني\nالخيار الثالث\nالخيار الرابع"></textarea></label><label>الإجابة الصحيحة<select class="q-answer"><option value="0">الخيار الأول</option><option value="1">الخيار الثاني</option><option value="2">الخيار الثالث</option><option value="3">الخيار الرابع</option></select></label><label>تفسير الإجابة<textarea class="q-explanation"></textarea></label>`;
   $('questionEditor').append(fieldset);
 }
 
+function syncQuestionCount() {
+  const isFinal = $('examModel').value === '4';
+  document.querySelectorAll('#questionEditor fieldset').forEach((field) => {
+    const hidden = field.dataset.finalOnly === 'true' && !isFinal;
+    field.hidden = hidden; field.disabled = hidden;
+  });
+}
+$('examModel').addEventListener('change', syncQuestionCount); syncQuestionCount();
+for (const grade of gradeValues) { const option = document.createElement('option'); option.value = String(grade); option.textContent = `الصف ${grade}`; $('finalGrade')?.append(option); }
+$('buildFinalsBtn')?.addEventListener('click', async () => {
+  const status = $('adminStatus'); status.className = 'status-line';
+  const grade = Number($('finalGrade').value);
+  status.textContent = 'جارٍ بناء الامتحانات النهائية…';
+  try {
+    const result = await api('/api/admin/build-finals', { method: 'POST', body: JSON.stringify({ grade, semester: 'الفصل الأول' }) });
+    status.textContent = `تم بناء ${result.built.length} امتحان نهائي${result.built.length ? ': ' + result.built.join('، ') : ''}.${result.skipped.length ? ' تم تخطي: ' + result.skipped.join('، ') : ''}`;
+    await refreshAdmin();
+  } catch (error) { status.textContent = error.message; status.classList.add('error'); }
+});
+
 $('examForm').addEventListener('submit', async (event) => {
   event.preventDefault(); const status = $('adminStatus'); status.className = 'status-line'; status.textContent = 'جارٍ حفظ النموذج…';
   try {
-    const questions = [...document.querySelectorAll('#questionEditor fieldset')].map((field) => ({ prompt: field.querySelector('.q-prompt').value.trim(), options: field.querySelector('.q-options').value.split('\n').map((item) => item.trim()).filter(Boolean), correctIndex: Number(field.querySelector('.q-answer').value), explanation: field.querySelector('.q-explanation').value.trim() }));
+    const questions = [...document.querySelectorAll('#questionEditor fieldset:not([disabled])')].map((field) => ({ prompt: field.querySelector('.q-prompt').value.trim(), options: field.querySelector('.q-options').value.split('\n').map((item) => item.trim()).filter(Boolean), correctIndex: Number(field.querySelector('.q-answer').value), explanation: field.querySelector('.q-explanation').value.trim() }));
     const payload = { grade: Number($('examGrade').value), subject: $('examSubject').value.trim(), semester: $('examSemester').value, unit: $('examUnit').value.trim(), lesson: $('examLesson').value.trim(), academicYear: $('academicYear').value.trim(), sourceReference: $('sourceReference').value.trim(), model: Number($('examModel').value), questions };
-    await api('/api/admin/import-exam', { method: 'POST', body: JSON.stringify(payload) }); status.textContent = 'تم حفظ النموذج ونشره.'; $('examForm').reset(); await refreshAdmin();
+    await api('/api/admin/import-exam', { method: 'POST', body: JSON.stringify(payload) }); status.textContent = 'تم حفظ النموذج ونشره.'; $('examForm').reset(); syncQuestionCount(); await refreshAdmin();
   } catch (error) { status.textContent = error.message; status.classList.add('error'); }
 });
 
