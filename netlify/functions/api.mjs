@@ -29,7 +29,11 @@ const parseBody = async (req) => {
 const phoneOnly = (value) => String(value || "").replace(/\D/g, "").replace(/^00962/, "").replace(/^962/, "").replace(/^0/, "");
 const validPhone = (phone) => /^7[789][0-9]{7}$/.test(phone);
 const cookieValue = (req, name) => (req.headers.get("cookie") || "").split(";").map((part) => part.trim()).find((part) => part.startsWith(`${name}=`))?.slice(name.length + 1) || "";
-const setCookie = (name, value, maxAge) => `${name}=${value}; Path=/; Max-Age=${maxAge}; HttpOnly; Secure; SameSite=Lax`;
+const setCookie = (name, value, maxAge, sameSite = "Lax") => `${name}=${value}; Path=/; Max-Age=${maxAge}; HttpOnly; Secure; SameSite=${sameSite}`;
+// ينظف الاسم من الرموز التي قد تُستخدم في حقن الأكواد
+const cleanName = (v) => String(v || "").replace(/[<>"'`\\\u0000-\u001f]/g, "").replace(/\s+/g, " ").trim().slice(0, 100);
+// مفتاح مقارنة الأسماء: يتجاهل الهمزات والتاء المربوطة والمسافات
+const nameKey = (v) => cleanName(v).toLowerCase().replace(/[أإآ]/g, "ا").replace(/ة/g, "ه").replace(/ى/g, "ي").replace(/\s/g, "");
 const clearCookie = (name) => `${name}=; Path=/; Max-Age=0; HttpOnly; Secure; SameSite=Lax`;
 const clientIp = (req) => req.headers.get("x-nf-client-connection-ip")
   || (req.headers.get("x-forwarded-for") || "").split(",")[0].trim() || "unknown";
@@ -119,6 +123,16 @@ export default async (req) => {
     const url = new URL(req.url);
     const path = url.pathname.replace(/\/$/, "") || "/";
     const teacherSlug = teacherFor(req);
+// حماية من طلبات المواقع الأخرى (CSRF): أي طلب تعديل يجب أن يأتي من نفس الموقع
+if (req.method !== "GET" && req.method !== "HEAD") {
+const origin = req.headers.get("origin");
+if (origin) {
+let originHost = "";
+try { originHost = new URL(origin).host; } catch {}
+const hosts = [url.host, req.headers.get("host"), req.headers.get("x-forwarded-host")].filter(Boolean);
+if (!originHost || !hosts.includes(originHost)) return fail("طلب مرفوض.", 403);
+}
+}
 
     if (req.method === "GET" && path === "/api/health") {
       await db.sql`SELECT 1`;
@@ -129,7 +143,7 @@ export default async (req) => {
       const body = await parseBody(req);
       const phone = phoneOnly(body?.phone);
       const grade = Number(body?.grade);
-      const name = String(body?.name || "").trim().slice(0, 100);
+      const name = cleanName(body?.name);
       if (!name || !validPhone(phone) || !Number.isInteger(grade) || !validGradeForTeacher(teacherSlug, grade)) return fail("أدخل الاسم ورقم هاتف أردني وصفاً متاحاً بشكل صحيح.");
       if (teacherSlug === "mohammad-bataineh" && body?.track && body.track !== "الأكاديمي") return fail("نسخة الأحياء مخصصة للمسار الأكاديمي.");
       const sentRecently = await db.sql`SELECT phone FROM verification_codes WHERE teacher_slug = ${teacherSlug} AND phone = ${phone} AND created_at > NOW() - INTERVAL '60 seconds'`;
@@ -168,7 +182,9 @@ export default async (req) => {
         return fail("رمز التحقق غير صحيح.", 401);
       }
       const prior = await db.sql`SELECT full_name, grade, track FROM students WHERE teacher_slug = ${teacherSlug} AND phone = ${phone}`;
-      const name = String(body?.name || prior[0]?.full_name || "").trim().slice(0, 100);
+      const name = cleanName(body?.name || prior[0]?.full_name);
+// ما دام رمز التحقق تجريبياً (بدون SMS): لا يُسمح بالدخول لحساب موجود إلا بنفس الاسم المسجّل
+if (otpDemoMode() && prior[0] && nameKey(body?.name) !== nameKey(prior[0].full_name)) return fail("هذا الرقم مسجّل باسم آخر. اكتب اسمك كما سجّلته أول مرة.", 403);
       const grade = Number(body?.grade || prior[0]?.grade);
       if (!name || !Number.isInteger(grade) || !validGradeForTeacher(teacherSlug, grade)) return fail("بيانات الطالب غير مكتملة.");
       if (teacherSlug === "mohammad-bataineh" && body?.track && body.track !== "الأكاديمي") return fail("نسخة الأحياء مخصصة للمسار الأكاديمي.");
@@ -277,7 +293,7 @@ if (await overLimit(`attempt:${student.id}`, intEnv("ATTEMPT_MAX_PER_STUDENT_HOU
       const token = randomBytes(32).toString("base64url");
       const ttl = 8 * 60 * 60;
       await db.sql`INSERT INTO admin_sessions (token_hash, teacher_slug, expires_at) VALUES (${hash(token)}, ${teacherSlug}, NOW() + (${ttl} * INTERVAL '1 second'))`;
-      return json({ ok: true }, 200, { "set-cookie": setCookie("asas_admin", token, ttl) });
+      return json({ ok: true }, 200, { "set-cookie": setCookie("asas_admin", token, ttl, "Strict") });
     }
 
     if (path.startsWith("/api/admin/") && !(await requireAdmin(req))) return fail("يلزم تسجيل دخول الإدارة.", 401);
