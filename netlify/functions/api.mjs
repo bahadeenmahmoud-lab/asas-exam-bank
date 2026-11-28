@@ -176,7 +176,7 @@ const legacy = body?.password === undefined && teacherSlug !== "asas";
 const purpose = body?.purpose === "reset" ? "reset" : "register";
 if (!validPhone(phone)) return fail("أدخل رقم هاتف أردني صحيح.");
 if (purpose === "reset" && !legacy) {
-if (!name) return fail("اكتب اسم أحد الطلاب المسجّلين على هذا الرقم.");
+// استعادة كلمة السر برقم الهاتف فقط
 } else if (!name || !Number.isInteger(grade) || !validGradeForTeacher(teacherSlug, grade)) return fail("أدخل الاسم ورقم هاتف أردني وصفاً متاحاً بشكل صحيح.");
 if (teacherSlug === "mohammad-bataineh" && body?.track && body.track !== "الأكاديمي") return fail("نسخة الأحياء مخصصة للمسار الأكاديمي.");
 if (!legacy) {
@@ -225,12 +225,13 @@ const purpose = !legacy && body?.purpose === "reset" ? "reset" : "register";
 const password = body?.password;
 if (!legacy && !validPassword(password)) return fail(PW_MSG);
 const name = cleanName(body?.name);
-if (!name) return fail("اكتب اسم الطالب.");
+if (!name && purpose !== "reset") return fail("اكتب اسم الطالب.");
 let acct = await findAccount(teacherSlug, phone);
 if (!legacy && purpose === "register" && acct?.password_hash) return fail(TAKEN_MSG, 409);
 if (purpose === "reset" && !acct) return fail(NO_ACCOUNT_MSG, 404);
 const existing = acct ? await accountStudents(acct.id) : [];
 let student = existing.find((s) => nameKey(s.full_name) === nameKey(name)) || null;
+if (purpose === "reset" && !student) student = existing[0] || null;
 // حماية من سرقة الحساب: لاستعادة كلمة السر، أو ما دام رمز التحقق تجريبياً، يجب أن يطابق الاسم طالباً مسجّلاً على الرقم
 if (existing.length && !student && (purpose === "reset" || otpDemoMode())) return fail("الاسم لا يطابق أي طالب مسجّل على هذا الرقم. اكتب الاسم كما سجّلته أول مرة، وبعد الدخول بتقدر تضيف إخوته.", 403);
 const track = teacherSlug === "mohammad-bataineh" ? "الأكاديمي" : "";
