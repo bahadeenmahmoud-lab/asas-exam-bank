@@ -6,7 +6,7 @@ const SESSION_DAYS = 30;
 const OTP_MINUTES = 5;
 const json = (data, status = 200, headers = {}) => new Response(JSON.stringify(data), {
   status,
-  headers: { "content-type": "application/json; charset=utf-8", "cache-control": "no-store", ...headers }
+  headers: { "content-type": "application/json; charset=utf-8", "cache-control": "no-store", "x-content-type-options": "nosniff", "x-frame-options": "DENY", "referrer-policy": "no-referrer", "x-robots-tag": "noindex, nofollow", ...headers }
 });
 const fail = (message, status = 400) => json({ error: message }, status);
 const env = (name) => Netlify.env.get(name) || "";
@@ -190,6 +190,7 @@ export default async (req) => {
     }
 
     if (req.method === "GET" && path === "/api/catalog") {
+if (await overLimit(`catalog-ip:${clientIp(req)}`, intEnv("CATALOG_MAX_PER_IP_10MIN", 120), 600)) return tooMany();
       const grade = Number(url.searchParams.get("grade"));
       if (!Number.isInteger(grade) || !validGradeForTeacher(teacherSlug, grade)) return fail("صف غير صالح.");
       const exams = await db.sql`SELECT e.id, e.grade, s.name AS subject, e.title, e.semester, e.unit, e.lesson, e.model,
@@ -212,7 +213,8 @@ export default async (req) => {
     if (req.method === "GET" && path === "/api/mistakes") {
       const student = await studentSession(req);
       if (!student) return fail("سجّل الدخول أولاً.", 401);
-      const mistakes = await db.sql`WITH latest AS (
+      if (await overLimit(`mistakes:${student.id}`, intEnv("MISTAKES_MAX_PER_STUDENT_HOUR", 30), 3600)) return tooMany();
+const mistakes = await db.sql`WITH latest AS (
           SELECT DISTINCT ON (a.exam_id) a.id, a.exam_id, a.completed_at
           FROM exam_attempts a JOIN exams e ON e.id = a.exam_id
           WHERE a.student_id = ${student.id} AND e.teacher_slug = ${teacherSlug}
@@ -235,7 +237,8 @@ export default async (req) => {
       const examId = Number(path.split("/").pop());
       const student = await studentSession(req);
       if (!student) return fail("سجّل الدخول أولاً.", 401);
-      const exams = await db.sql`SELECT id, grade FROM exams WHERE id = ${examId} AND teacher_slug = ${teacherSlug} AND status = 'published'`;
+      if (await overLimit(`exam-fetch:${student.id}`, intEnv("EXAM_FETCH_MAX_PER_STUDENT_HOUR", 60), 3600)) return tooMany("فتحت امتحانات كثيرة خلال وقت قصير. استنى شوي وارجع.");
+const exams = await db.sql`SELECT id, grade FROM exams WHERE id = ${examId} AND teacher_slug = ${teacherSlug} AND status = 'published'`;
       if (!exams[0] || Number(exams[0].grade) !== Number(student.grade)) return fail("الامتحان غير متاح لهذا الصف.", 404);
       const questions = await db.sql`SELECT id, position, prompt, options FROM questions WHERE exam_id = ${examId} ORDER BY position`;
       return json({ examId, questions });
@@ -246,6 +249,7 @@ export default async (req) => {
       if (!student) return fail("سجّل الدخول أولاً.", 401);
       const body = await parseBody(req);
       const examId = Number(body?.examId);
+if (await overLimit(`attempt:${student.id}`, intEnv("ATTEMPT_MAX_PER_STUDENT_HOUR", 30), 3600) || await overLimit(`attempt-ip:${clientIp(req)}`, intEnv("ATTEMPT_MAX_PER_IP_HOUR", 120), 3600)) return tooMany("سلّمت امتحانات كثيرة خلال وقت قصير. استنى شوي وارجع.");
       const answers = body?.answers;
       if (!Number.isInteger(examId) || !Array.isArray(answers)) return fail("بيانات الامتحان غير مكتملة.");
       const questions = await db.sql`SELECT q.id, q.correct_index FROM questions q JOIN exams e ON e.id = q.exam_id
